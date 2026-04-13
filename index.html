@@ -121,9 +121,10 @@
     color: var(--text); line-height: 1;
     transition: color .3s;
   }
-  .card-value.high { color: var(--warn); }
-  .card-value.med  { color: #fbbf24; }
-  .card-value.low  { color: var(--good); }
+  .card-value.high      { color: var(--warn); }
+  .card-value.med       { color: #fbbf24; }
+  .card-value.low       { color: var(--good); }
+  .card-value.hyperext  { color: var(--accent2); }
   .card-sub { font-size: 11px; color: var(--muted); }
   .card-bar {
     position: absolute; bottom: 0; left: 0; height: 3px;
@@ -348,7 +349,7 @@
 
   <!-- Info -->
   <div class="info-banner">
-    💡 <strong>Tip:</strong> Hold the hand still in lateral view (thumb up). Wait for angles to stabilise, then tap Capture. Keep the finger spread flat for best MCPJ reading.
+    💡 <strong>Tip:</strong> Hold the hand still in lateral view (thumb up). <strong>Flexion = positive°, hyperextension = negative°.</strong> Wait for angles to stabilise, then tap Capture.
   </div>
 
   <!-- Log -->
@@ -413,22 +414,29 @@ function sub(a,b){ return a.map((x,i)=>x-b[i]); }
 function cross3(a,b){ return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; }
 function angleDeg(v1,v2){ const c=Math.max(-1,Math.min(1,dot(norm(v1),norm(v2)))); return Math.acos(c)*180/Math.PI; }
 
-function signedFlex2d(A,B,C,sm=1){
+// Flexion = positive, hyperextension = negative
+// plane_normal = finger flex plane normal (points dorsally)
+// flexion: finger curls toward palm => cross(u,v) antiparallel to dorsal normal => sign +1
+function signedFlex3d(A,B,C,plane_normal){
+  const u=sub(A,B), v=sub(C,B);
+  if(Math.hypot(...u)<1e-6||Math.hypot(...v)<1e-6||Math.hypot(...plane_normal)<1e-6) return NaN;
+  const mag = 180 - angleDeg(u,v);
+  const sign = dot(cross3(u,v), norm(plane_normal)) <= 0 ? 1 : -1;
+  return sign * mag;
+}
+
+// 2D version: use 3D palm normal z-component to anchor sign anatomically
+// so it is consistent regardless of camera/phone orientation
+function signedFlex2d(A,B,C, pn3d){
   const u=sub(A,B), v=sub(C,B);
   const nu=Math.hypot(...u), nv=Math.hypot(...v);
   if(nu<1e-6||nv<1e-6) return NaN;
   const mag = 180 - angleDeg(u,v);
-  const cz = u[0]*v[1] - u[1]*v[0];
-  const sign = cz>=0 ? -1 : 1;
-  return sm * sign * mag;
-}
-
-function signedFlex3d(A,B,C,plane_normal,sm=1){
-  const u=sub(A,B), v=sub(C,B);
-  if(Math.hypot(...u)<1e-6||Math.hypot(...v)<1e-6||Math.hypot(...plane_normal)<1e-6) return NaN;
-  const mag = 180 - angleDeg(u,v);
-  const sign = dot(cross3(u,v),norm(plane_normal))>=0 ? 1 : -1;
-  return sm * sign * mag;
+  const cz = u[0]*v[1] - u[1]*v[0]; // 2D cross z
+  // pn3d[2]: if positive, palm faces toward camera (back of hand away) => cz>0 means hyperext
+  const dorsalZ = (pn3d && pn3d[2] !== undefined) ? pn3d[2] : -1;
+  const sign = (dorsalZ >= 0) ? (cz >= 0 ? -1 : 1) : (cz >= 0 ? 1 : -1);
+  return sign * mag;
 }
 
 function palmNormal3d(p){ return norm(cross3(sub(p[INDEX_MCP],p[WRIST]), sub(p[LIT_MCP],p[WRIST]))); }
@@ -456,19 +464,23 @@ function mcpProx2d(p2,MCP,PIP){
 }
 
 function computeAngles(p2, p3){
+  // Pass 3D palm normal to 2D functions so sign is anatomically grounded
+  const pn3d_ring   = fingerFlexPlane3d(p3,RING_MCP,RING_PIP);
+  const pn3d_little = fingerFlexPlane3d(p3,LIT_MCP,LIT_PIP);
+  const palmN3d     = palmNormal3d(p3);
   return {
-    ring_mcp_2d: signedFlex2d(mcpProx2d(p2,RING_MCP,RING_PIP), p2[RING_MCP], p2[RING_PIP], SIGN_2D),
-    ring_pip_2d: signedFlex2d(p2[RING_MCP], p2[RING_PIP], p2[RING_DIP], SIGN_2D),
-    ring_dip_2d: signedFlex2d(p2[RING_PIP], p2[RING_DIP], p2[RING_TIP], SIGN_2D),
-    ring_mcp_3d: signedFlex3d(mcpProx3d(p3,RING_MCP,RING_PIP), p3[RING_MCP], p3[RING_PIP], fingerFlexPlane3d(p3,RING_MCP,RING_PIP), SIGN_3D),
-    ring_pip_3d: signedFlex3d(p3[RING_MCP], p3[RING_PIP], p3[RING_DIP], fingerFlexPlane3d(p3,RING_MCP,RING_PIP), SIGN_3D),
-    ring_dip_3d: signedFlex3d(p3[RING_PIP], p3[RING_DIP], p3[RING_TIP], fingerFlexPlane3d(p3,RING_MCP,RING_PIP), SIGN_3D),
-    little_mcp_2d: signedFlex2d(mcpProx2d(p2,LIT_MCP,LIT_PIP), p2[LIT_MCP], p2[LIT_PIP], SIGN_2D),
-    little_pip_2d: signedFlex2d(p2[LIT_MCP], p2[LIT_PIP], p2[LIT_DIP], SIGN_2D),
-    little_dip_2d: signedFlex2d(p2[LIT_PIP], p2[LIT_DIP], p2[LIT_TIP], SIGN_2D),
-    little_mcp_3d: signedFlex3d(mcpProx3d(p3,LIT_MCP,LIT_PIP), p3[LIT_MCP], p3[LIT_PIP], fingerFlexPlane3d(p3,LIT_MCP,LIT_PIP), SIGN_3D),
-    little_pip_3d: signedFlex3d(p3[LIT_MCP], p3[LIT_PIP], p3[LIT_DIP], fingerFlexPlane3d(p3,LIT_MCP,LIT_PIP), SIGN_3D),
-    little_dip_3d: signedFlex3d(p3[LIT_PIP], p3[LIT_DIP], p3[LIT_TIP], fingerFlexPlane3d(p3,LIT_MCP,LIT_PIP), SIGN_3D),
+    ring_mcp_2d: signedFlex2d(mcpProx2d(p2,RING_MCP,RING_PIP), p2[RING_MCP], p2[RING_PIP], palmN3d),
+    ring_pip_2d: signedFlex2d(p2[RING_MCP], p2[RING_PIP], p2[RING_DIP], palmN3d),
+    ring_dip_2d: signedFlex2d(p2[RING_PIP], p2[RING_DIP], p2[RING_TIP], palmN3d),
+    ring_mcp_3d: signedFlex3d(mcpProx3d(p3,RING_MCP,RING_PIP), p3[RING_MCP], p3[RING_PIP], pn3d_ring),
+    ring_pip_3d: signedFlex3d(p3[RING_MCP], p3[RING_PIP], p3[RING_DIP], pn3d_ring),
+    ring_dip_3d: signedFlex3d(p3[RING_PIP], p3[RING_DIP], p3[RING_TIP], pn3d_ring),
+    little_mcp_2d: signedFlex2d(mcpProx2d(p2,LIT_MCP,LIT_PIP), p2[LIT_MCP], p2[LIT_PIP], palmN3d),
+    little_pip_2d: signedFlex2d(p2[LIT_MCP], p2[LIT_PIP], p2[LIT_DIP], palmN3d),
+    little_dip_2d: signedFlex2d(p2[LIT_PIP], p2[LIT_DIP], p2[LIT_TIP], palmN3d),
+    little_mcp_3d: signedFlex3d(mcpProx3d(p3,LIT_MCP,LIT_PIP), p3[LIT_MCP], p3[LIT_PIP], pn3d_little),
+    little_pip_3d: signedFlex3d(p3[LIT_MCP], p3[LIT_PIP], p3[LIT_DIP], pn3d_little),
+    little_dip_3d: signedFlex3d(p3[LIT_PIP], p3[LIT_DIP], p3[LIT_TIP], pn3d_little),
   };
 }
 
@@ -539,10 +551,10 @@ function drawLandmarks(pts2d, canvas){
 }
 
 // ── UI helpers ───────────────────────────────────────────────────
-function colorClass(v){ if(v===null||isNaN(v))return ''; if(v>45)return 'high'; if(v>20)return 'med'; return 'low'; }
+function colorClass(v){ if(v===null||isNaN(v))return ''; if(v<0)return 'hyperext'; if(v>45)return 'high'; if(v>20)return 'med'; return 'low'; }
 
 function updateCards(mcp,pip,dip){
-  const fmt = v=>(v===null||isNaN(v))?'—':Math.round(v)+'°';
+  const fmt = v=>(v===null||isNaN(v))?'—':(v<0?'':'')+Math.round(v)+'°';
   const maxA=90;
   ['Mcp','Pip','Dip'].forEach((j,i)=>{
     const v=[mcp,pip,dip][i];
@@ -636,64 +648,60 @@ function updateConf(score){
 }
 
 // ── Main processing loop ──────────────────────────────────────────
-let lastVideoTime=-1;
 const video=document.getElementById('video');
 const overlay=document.getElementById('overlay');
 
-async function detect(){
-  if(!landmarker) { requestAnimationFrame(detect); return; }
+function detect(ts){
+  requestAnimationFrame(detect);
+  if(!landmarker || video.readyState<2 || video.paused) return;
 
   // sync canvas size
   if(overlay.width!==video.videoWidth||overlay.height!==video.videoHeight){
     overlay.width=video.videoWidth||640; overlay.height=video.videoHeight||480;
   }
 
-  if(video.currentTime !== lastVideoTime && video.readyState>=2){
-    lastVideoTime=video.currentTime;
-    const result=landmarker.detectForVideo(video,performance.now());
+  const result=landmarker.detectForVideo(video, ts||performance.now());
 
-    // FPS
-    frameCount++;
-    const now=Date.now();
-    if(now-lastFpsTime>1000){
-      document.getElementById('fpsDisplay').textContent=frameCount+' fps';
-      frameCount=0; lastFpsTime=now;
-    }
+  // FPS
+  frameCount++;
+  const now=Date.now();
+  if(now-lastFpsTime>1000){
+    document.getElementById('fpsDisplay').textContent=frameCount+' fps';
+    frameCount=0; lastFpsTime=now;
+  }
 
-    if(result.landmarks && result.landmarks.length>0){
-      const lm  = result.landmarks[0];
-      const wlm = result.worldLandmarks[0];
+  if(result.landmarks && result.landmarks.length>0){
+    const lm  = result.landmarks[0];
+    const wlm = result.worldLandmarks[0];
 
-      const raw2d = lm.map(l=>[l.x, l.y]);
-      const raw3d = wlm.map(l=>[l.x, l.y, l.z]);
+    const raw2d = lm.map(l=>[l.x, l.y]);
+    const raw3d = wlm.map(l=>[l.x, l.y, l.z]);
 
-      const {s2,s3} = updateSmooth(raw2d, raw3d);
-      const angles = computeAngles(s2, s3);
+    const {s2,s3} = updateSmooth(raw2d, raw3d);
+    const angles = computeAngles(s2, s3);
 
-      const f=currentFinger, m=currentMode;
-      const mcp=angles[`${f}_mcp_${m}`];
-      const pip=angles[`${f}_pip_${m}`];
-      const dip=angles[`${f}_dip_${m}`];
-      window._currentAngles={mcp,pip,dip};
+    const f=currentFinger, m=currentMode;
+    const mcp=angles[`${f}_mcp_${m}`];
+    const pip=angles[`${f}_pip_${m}`];
+    const dip=angles[`${f}_dip_${m}`];
+    window._currentAngles={mcp,pip,dip};
 
-      updateCards(mcp,pip,dip);
-      const conf=result.handednesses[0]?.[0]?.score??0;
-      updateConf(conf);
-      document.getElementById('statusDot').className='status-dot active';
-      drawLandmarks(s2, overlay);
-      handVisible=true;
-    } else {
-      if(handVisible){
-        document.getElementById('statusDot').className='status-dot';
-        updateCards(null,null,null);
-        updateConf(0);
-        buf2d=[]; buf3d=[];
-        drawLandmarks(null, overlay);
-        handVisible=false;
-      }
+    updateCards(mcp,pip,dip);
+    const conf=result.handednesses[0]?.[0]?.score??0;
+    updateConf(conf);
+    document.getElementById('statusDot').className='status-dot active';
+    drawLandmarks(s2, overlay);
+    handVisible=true;
+  } else {
+    if(handVisible){
+      document.getElementById('statusDot').className='status-dot';
+      updateCards(null,null,null);
+      updateConf(0);
+      buf2d=[]; buf3d=[];
+      drawLandmarks(null, overlay);
+      handVisible=false;
     }
   }
-  requestAnimationFrame(detect);
 }
 
 // ── Init ─────────────────────────────────────────────────────────
@@ -716,10 +724,14 @@ async function init(){
       "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
     );
     landmarker = await HandLandmarker.createFromOptions(vision,{
+      baseOptions:{ modelAssetPath:"https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task", delegate:"GPU" },
+      runningMode:"VIDEO", numHands:1, minHandDetectionConfidence:0.6,
+      minHandPresenceConfidence:0.6, minTrackingConfidence:0.7
+    }).catch(()=> HandLandmarker.createFromOptions(vision,{
       baseOptions:{ modelAssetPath:"https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task", delegate:"CPU" },
       runningMode:"VIDEO", numHands:1, minHandDetectionConfidence:0.6,
       minHandPresenceConfidence:0.6, minTrackingConfidence:0.7
-    });
+    }));
     document.getElementById('loading').style.display='none';
 
     // Set default mode button state
