@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dupuytren Goniometry</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg:       #0a0c0f;
+    --surface:  #131619;
+    --card:     #1a1e24;
+    --border:   #252b34;
+    --accent:   #00e5a0;
+    --accent2:  #0099ff;
+    --warn:     #ff6b35;
+    --text:     #e8edf2;
+    --muted:    #6b7a8d;
+    --ring:     #a78bfa;
+    --little:   #38bdf8;
+    --good:     #4ade80;
+    --radius:   14px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; overflow-x: hidden; }
+
+  /* ── Header ── */
+  header {
+    padding: 18px 20px 12px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon {
+    width: 32px; height: 32px; background: var(--accent); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .logo h1 { font-family: 'Space Mono', monospace; font-size: 14px; font-weight: 700; letter-spacing: 0.03em; }
+  .logo p { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--muted);
+    transition: background .3s;
+  }
+  .status-dot.active { background: var(--good); box-shadow: 0 0 6px var(--good); animation: pulse 1.5s infinite; }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+  /* ── Main layout ── */
+  main { padding: 16px; display: flex; flex-direction: column; gap: 14px; max-width: 600px; margin: 0 auto; }
+
+  /* ── Video wrapper ── */
+  .video-wrapper {
+    position: relative; border-radius: var(--radius); overflow: hidden;
+    background: #000; aspect-ratio: 4/3;
+    border: 1px solid var(--border);
+  }
+  #video { width: 100%; height: 100%; object-fit: cover; display: block; transform: scaleX(-1); }
+  #overlay { position: absolute; inset: 0; width: 100%; height: 100%; transform: scaleX(-1); }
+  .video-badge {
+    position: absolute; top: 10px; left: 10px;
+    background: rgba(0,0,0,.7); backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    padding: 4px 10px; border-radius: 20px;
+    font-family: 'Space Mono', monospace; font-size: 11px; color: var(--accent);
+  }
+  .upload-btn {
+    position: absolute; top: 10px; right: 10px;
+    background: rgba(0,0,0,.7); backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    padding: 6px 12px; border-radius: 20px;
+    font-size: 12px; color: var(--text); cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+  }
+  #fileInput { display: none; }
+
+  /* ── Finger selector ── */
+  .finger-tabs {
+    display: flex; gap: 8px;
+  }
+  .tab {
+    flex: 1; padding: 10px 0; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface); text-align: center; cursor: pointer;
+    font-size: 13px; font-weight: 500; transition: all .2s;
+    color: var(--muted);
+  }
+  .tab.active.ring  { background: rgba(167,139,250,.15); border-color: var(--ring);  color: var(--ring); }
+  .tab.active.little { background: rgba(56,189,248,.15);  border-color: var(--little); color: var(--little); }
+  .tab:hover:not(.active) { border-color: var(--muted); color: var(--text); }
+
+  /* ── Angle cards ── */
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 10px 12px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    position: relative; overflow: hidden;
+    transition: border-color .3s;
+  }
+  .card.highlight { border-color: var(--accent); }
+  .card-label {
+    font-family: 'Space Mono', monospace; font-size: 10px;
+    color: var(--muted); letter-spacing: .04em; text-transform: uppercase;
+  }
+  .card-value {
+    font-family: 'Space Mono', monospace; font-size: 28px; font-weight: 700;
+    color: var(--text); line-height: 1;
+    transition: color .3s;
+  }
+  .card-value.high { color: var(--warn); }
+  .card-value.med  { color: #fbbf24; }
+  .card-value.low  { color: var(--good); }
+  .card-sub { font-size: 11px; color: var(--muted); }
+  .card-bar {
+    position: absolute; bottom: 0; left: 0; height: 3px;
+    background: var(--accent); transition: width .3s;
+    border-radius: 0 2px 2px 0;
+  }
+  .card-bar.mcp { background: var(--accent); }
+  .card-bar.pip { background: var(--accent2); }
+  .card-bar.dip { background: var(--ring); }
+
+  /* ── Mode selector ── */
+  .mode-row { display: flex; gap: 8px; align-items: center; }
+  .mode-label { font-size: 12px; color: var(--muted); }
+  .mode-pill {
+    display: flex; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; overflow: hidden;
+  }
+  .mode-btn {
+    padding: 6px 14px; font-size: 12px; cursor: pointer; transition: all .2s;
+    color: var(--muted); border: none; background: transparent;
+  }
+  .mode-btn.active { background: var(--accent); color: #000; font-weight: 600; border-radius: 20px; }
+
+  /* ── Capture row ── */
+  .capture-row { display: flex; gap: 10px; }
+  .btn-capture {
+    flex: 1; padding: 16px; border-radius: var(--radius); border: none; cursor: pointer;
+    background: var(--accent); color: #000; font-family: 'DM Sans', sans-serif;
+    font-size: 15px; font-weight: 600; transition: opacity .2s, transform .1s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-capture:active { transform: scale(.97); opacity: .85; }
+  .btn-capture:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-export {
+    padding: 16px 18px; border-radius: var(--radius); border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); cursor: pointer;
+    font-size: 20px; transition: border-color .2s;
+  }
+  .btn-export:hover { border-color: var(--accent); }
+
+  /* ── Log ── */
+  .log-header { display: flex; align-items: center; justify-content: space-between; }
+  .log-title { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--muted); letter-spacing: .04em; }
+  .log-clear { font-size: 11px; color: var(--muted); cursor: pointer; text-decoration: underline; }
+  .log-clear:hover { color: var(--warn); }
+  .log-table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead tr { background: var(--surface); }
+  th { padding: 8px 12px; text-align: left; color: var(--muted); font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: .04em; font-weight: 400; white-space: nowrap; }
+  td { padding: 8px 12px; border-top: 1px solid var(--border); white-space: nowrap; }
+  tr:hover td { background: var(--surface); }
+  .log-finger-ring   { color: var(--ring); font-weight: 600; }
+  .log-finger-little { color: var(--little); font-weight: 600; }
+  .empty-log { padding: 24px; text-align: center; color: var(--muted); font-size: 13px; }
+
+  /* ── Confidence bar ── */
+  .conf-row { display: flex; align-items: center; gap: 10px; }
+  .conf-label { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .conf-bar-bg { flex: 1; height: 4px; background: var(--border); border-radius: 2px; }
+  .conf-bar-fill { height: 4px; background: var(--accent); border-radius: 2px; width: 0%; transition: width .3s; }
+  .conf-val { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); min-width: 34px; text-align: right; }
+
+  /* ── Patient info ── */
+  .patient-row { display: flex; gap: 10px; }
+  .patient-field { flex: 1; }
+  .patient-field label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 5px; }
+  .patient-field input, .patient-field select {
+    width: 100%; padding: 9px 12px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    font-size: 13px; font-family: 'DM Sans', sans-serif; outline: none;
+    transition: border-color .2s;
+  }
+  .patient-field input:focus, .patient-field select:focus { border-color: var(--accent); }
+
+  /* ── Info banner ── */
+  .info-banner {
+    background: rgba(0,229,160,.06); border: 1px solid rgba(0,229,160,.2);
+    border-radius: 10px; padding: 10px 14px;
+    font-size: 12px; color: rgba(0,229,160,.8); line-height: 1.5;
+  }
+
+  /* ── Loading overlay ── */
+  #loading {
+    position: fixed; inset: 0; z-index: 200;
+    background: var(--bg); display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 20px;
+  }
+  .spinner {
+    width: 48px; height: 48px; border: 3px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .load-text { font-family: 'Space Mono', monospace; font-size: 13px; color: var(--muted); }
+
+  /* ── Snackbar ── */
+  #snackbar {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--card); border: 1px solid var(--accent);
+    padding: 10px 20px; border-radius: 20px; font-size: 13px;
+    transition: transform .3s; z-index: 300; white-space: nowrap;
+  }
+  #snackbar.show { transform: translateX(-50%) translateY(0); }
+
+  .section-title {
+    font-family: 'Space Mono', monospace; font-size: 10px;
+    color: var(--muted); letter-spacing: .08em; text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div class="load-text">Loading hand tracking model…</div>
+</div>
+
+<div id="snackbar">✓ Reading captured</div>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">✋</div>
+    <div>
+      <h1>DupuGonio</h1>
+      <p>Flexion Contracture Tracker</p>
+    </div>
+  </div>
+  <div class="status-dot" id="statusDot"></div>
+</header>
+
+<main>
+
+  <!-- Patient info -->
+  <div>
+    <div class="section-title">Patient</div>
+    <div class="patient-row">
+      <div class="patient-field">
+        <label>Patient ID / Initials</label>
+        <input type="text" id="patientId" placeholder="e.g. PT001" autocomplete="off">
+      </div>
+      <div class="patient-field">
+        <label>Hand</label>
+        <select id="handSide">
+          <option value="R">Right</option>
+          <option value="L">Left</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Video -->
+  <div>
+    <div class="section-title">Camera</div>
+    <div class="video-wrapper">
+      <video id="video" autoplay muted playsinline></video>
+      <canvas id="overlay"></canvas>
+      <div class="video-badge" id="fpsDisplay">— fps</div>
+      <label class="upload-btn" for="fileInput">📁 Video</label>
+      <input type="file" id="fileInput" accept="video/*">
+    </div>
+  </div>
+
+  <!-- Confidence -->
+  <div class="conf-row">
+    <span class="conf-label">Detection</span>
+    <div class="conf-bar-bg"><div class="conf-bar-fill" id="confBar"></div></div>
+    <span class="conf-val" id="confVal">–</span>
+  </div>
+
+  <!-- Finger selector -->
+  <div>
+    <div class="section-title">Finger</div>
+    <div class="finger-tabs">
+      <div class="tab active ring"  id="tabRing"   onclick="setFinger('ring')">Ring (D4)</div>
+      <div class="tab little"       id="tabLittle" onclick="setFinger('little')">Little (D5)</div>
+    </div>
+  </div>
+
+  <!-- Mode -->
+  <div class="mode-row">
+    <span class="mode-label">Angle mode:</span>
+    <div class="mode-pill">
+      <button class="mode-btn active" id="mode2d" onclick="setMode('2d')">2-D Projected</button>
+      <button class="mode-btn"        id="mode3d" onclick="setMode('3d')">3-D World</button>
+    </div>
+  </div>
+
+  <!-- Angle cards -->
+  <div>
+    <div class="section-title">Live Angles</div>
+    <div class="cards">
+      <div class="card" id="cardMcp">
+        <div class="card-label">MCPJ</div>
+        <div class="card-value" id="valMcp">—</div>
+        <div class="card-sub">degrees</div>
+        <div class="card-bar mcp" id="barMcp" style="width:0%"></div>
+      </div>
+      <div class="card highlight" id="cardPip">
+        <div class="card-label">PIPJ</div>
+        <div class="card-value" id="valPip">—</div>
+        <div class="card-sub">degrees</div>
+        <div class="card-bar pip" id="barPip" style="width:0%"></div>
+      </div>
+      <div class="card" id="cardDip">
+        <div class="card-label">DIPJ</div>
+        <div class="card-value" id="valDip">—</div>
+        <div class="card-sub">degrees</div>
+        <div class="card-bar dip" id="barDip" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Capture -->
+  <div class="capture-row">
+    <button class="btn-capture" id="captureBtn" onclick="captureReading()" disabled>
+      <span>📐</span> Capture Reading
+    </button>
+    <button class="btn-export" title="Export CSV" onclick="exportCSV()">⬇️</button>
+  </div>
+
+  <!-- Info -->
+  <div class="info-banner">
+    💡 <strong>Tip:</strong> Hold the hand still in lateral view (thumb up). Wait for angles to stabilise, then tap Capture. Keep the finger spread flat for best MCPJ reading.
+  </div>
+
+  <!-- Log -->
+  <div>
+    <div class="log-header">
+      <div class="log-title">Captured Readings</div>
+      <div class="log-clear" onclick="clearLog()">Clear</div>
+    </div>
+    <div style="margin-top:8px;">
+      <div class="log-table-wrap">
+        <table id="logTable">
+          <thead>
+            <tr>
+              <th>#</th><th>Time</th><th>Patient</th><th>Hand</th>
+              <th>Finger</th><th>Mode</th>
+              <th>MCPJ °</th><th>PIPJ °</th><th>DIPJ °</th>
+            </tr>
+          </thead>
+          <tbody id="logBody">
+            <tr><td colspan="9" class="empty-log">No readings yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- MediaPipe via CDN -->
+<script type="module">
+import { FilesetResolver, HandLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+// ── Landmark indices ────────────────────────────────────────────
+const WRIST = 0, INDEX_MCP = 5, MIDDLE_MCP = 9;
+const RING_MCP=13, RING_PIP=14, RING_DIP=15, RING_TIP=16;
+const LIT_MCP=17,  LIT_PIP=18,  LIT_DIP=19,  LIT_TIP=20;
+
+// ── Config ──────────────────────────────────────────────────────
+const SMOOTH_WINDOW = 7;
+const MIN_VIS_PX    = 8;
+const MAX_LEN_DEV   = 2.5;
+const MAX_JUMP_RATIO= 2.0;
+const MAX_ANGLE_JUMP= 25;
+const SIGN_2D = 1.0, SIGN_3D = 1.0;
+
+// ── State ───────────────────────────────────────────────────────
+let landmarker = null;
+let currentFinger = 'ring';
+let currentMode   = '2d';
+let log = [];
+let frameCount=0, lastFpsTime=Date.now();
+let buf2d=[], buf3d=[];
+let prevLengths={}, prevAngles={};
+let handVisible=false;
+
+// ── Geometry helpers ─────────────────────────────────────────────
+function norm(v){ const n=Math.hypot(...v); return n<1e-9?v.map(_=>0):v.map(x=>x/n); }
+function dot(a,b){ return a.reduce((s,x,i)=>s+x*b[i],0); }
+function sub(a,b){ return a.map((x,i)=>x-b[i]); }
+function cross3(a,b){ return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; }
+function angleDeg(v1,v2){ const c=Math.max(-1,Math.min(1,dot(norm(v1),norm(v2)))); return Math.acos(c)*180/Math.PI; }
+
+function signedFlex2d(A,B,C,sm=1){
+  const u=sub(A,B), v=sub(C,B);
+  const nu=Math.hypot(...u), nv=Math.hypot(...v);
+  if(nu<1e-6||nv<1e-6) return NaN;
+  const mag = 180 - angleDeg(u,v);
+  const cz = u[0]*v[1] - u[1]*v[0];
+  const sign = cz>=0 ? -1 : 1;
+  return sm * sign * mag;
+}
+
+function signedFlex3d(A,B,C,plane_normal,sm=1){
+  const u=sub(A,B), v=sub(C,B);
+  if(Math.hypot(...u)<1e-6||Math.hypot(...v)<1e-6||Math.hypot(...plane_normal)<1e-6) return NaN;
+  const mag = 180 - angleDeg(u,v);
+  const sign = dot(cross3(u,v),norm(plane_normal))>=0 ? 1 : -1;
+  return sm * sign * mag;
+}
+
+function palmNormal3d(p){ return norm(cross3(sub(p[INDEX_MCP],p[WRIST]), sub(p[LIT_MCP],p[WRIST]))); }
+
+function metacarpalAxis3d(p, MCP, PIP){
+  const pn=palmNormal3d(p), raw=sub(p[MCP],p[WRIST]);
+  let flat=sub(raw, pn.map(x=>x*dot(raw,pn)));
+  let ax=norm(flat);
+  if(dot(ax,sub(p[PIP],p[MCP]))<0) ax=ax.map(x=>-x);
+  return ax;
+}
+
+function fingerFlexPlane3d(p,MCP,PIP){
+  const n=cross3(palmNormal3d(p), metacarpalAxis3d(p,MCP,PIP));
+  return Math.hypot(...n)>1e-6 ? norm(n) : [0,0,1];
+}
+
+function mcpProx3d(p,MCP,PIP){ return sub(p[MCP], metacarpalAxis3d(p,MCP,PIP)); }
+function mcpProx2d(p2,MCP,PIP){
+  const raw=sub(p2[MCP],p2[WRIST]), n=Math.hypot(...raw);
+  if(n<1e-6) return p2[WRIST];
+  let meta=norm(raw);
+  if(dot(meta,sub(p2[PIP],p2[MCP]))>0) meta=meta.map(x=>-x);
+  return [p2[MCP][0]+meta[0]*n, p2[MCP][1]+meta[1]*n];
+}
+
+function computeAngles(p2, p3){
+  return {
+    ring_mcp_2d: signedFlex2d(mcpProx2d(p2,RING_MCP,RING_PIP), p2[RING_MCP], p2[RING_PIP], SIGN_2D),
+    ring_pip_2d: signedFlex2d(p2[RING_MCP], p2[RING_PIP], p2[RING_DIP], SIGN_2D),
+    ring_dip_2d: signedFlex2d(p2[RING_PIP], p2[RING_DIP], p2[RING_TIP], SIGN_2D),
+    ring_mcp_3d: signedFlex3d(mcpProx3d(p3,RING_MCP,RING_PIP), p3[RING_MCP], p3[RING_PIP], fingerFlexPlane3d(p3,RING_MCP,RING_PIP), SIGN_3D),
+    ring_pip_3d: signedFlex3d(p3[RING_MCP], p3[RING_PIP], p3[RING_DIP], fingerFlexPlane3d(p3,RING_MCP,RING_PIP), SIGN_3D),
+    ring_dip_3d: signedFlex3d(p3[RING_PIP], p3[RING_DIP], p3[RING_TIP], fingerFlexPlane3d(p3,RING_MCP,RING_PIP), SIGN_3D),
+    little_mcp_2d: signedFlex2d(mcpProx2d(p2,LIT_MCP,LIT_PIP), p2[LIT_MCP], p2[LIT_PIP], SIGN_2D),
+    little_pip_2d: signedFlex2d(p2[LIT_MCP], p2[LIT_PIP], p2[LIT_DIP], SIGN_2D),
+    little_dip_2d: signedFlex2d(p2[LIT_PIP], p2[LIT_DIP], p2[LIT_TIP], SIGN_2D),
+    little_mcp_3d: signedFlex3d(mcpProx3d(p3,LIT_MCP,LIT_PIP), p3[LIT_MCP], p3[LIT_PIP], fingerFlexPlane3d(p3,LIT_MCP,LIT_PIP), SIGN_3D),
+    little_pip_3d: signedFlex3d(p3[LIT_MCP], p3[LIT_PIP], p3[LIT_DIP], fingerFlexPlane3d(p3,LIT_MCP,LIT_PIP), SIGN_3D),
+    little_dip_3d: signedFlex3d(p3[LIT_PIP], p3[LIT_DIP], p3[LIT_TIP], fingerFlexPlane3d(p3,LIT_MCP,LIT_PIP), SIGN_3D),
+  };
+}
+
+// ── Smoothing buffer ─────────────────────────────────────────────
+function updateSmooth(raw2d, raw3d){
+  buf2d.push(raw2d.map(p=>[...p]));
+  buf3d.push(raw3d.map(p=>[...p]));
+  if(buf2d.length>SMOOTH_WINDOW){ buf2d.shift(); buf3d.shift(); }
+  const n=buf2d.length, npts=raw2d.length;
+  const s2=Array.from({length:npts},(_,i)=>[0,1].map(j=>buf2d.reduce((a,f)=>a+f[i][j],0)/n));
+  const s3=Array.from({length:npts},(_,i)=>[0,1,2].map(j=>buf3d.reduce((a,f)=>a+f[i][j],0)/n));
+  return {s2,s3};
+}
+
+// ── Draw skeleton on canvas ──────────────────────────────────────
+const CONNECTIONS=[
+  [WRIST,INDEX_MCP],[WRIST,MIDDLE_MCP],[WRIST,LIT_MCP],
+  [INDEX_MCP,5],[5,6],[6,7],[7,8],
+  [MIDDLE_MCP,9],[9,10],[10,11],[11,12],
+  [RING_MCP,13],[13,14],[14,15],[15,16],
+  [LIT_MCP,17],[17,18],[18,19],[19,20],
+  [WRIST,0],[INDEX_MCP,MIDDLE_MCP],[MIDDLE_MCP,RING_MCP],[RING_MCP,LIT_MCP]
+];
+
+const HIGHLIGHT_RING  =[13,14,15,16];
+const HIGHLIGHT_LIT   =[17,18,19,20];
+
+function drawLandmarks(pts2d, canvas){
+  const ctx=canvas.getContext('2d');
+  const {width:W,height:H}=canvas;
+  ctx.clearRect(0,0,W,H);
+  if(!pts2d) return;
+
+  const px=(i)=>[pts2d[i][0]*W, pts2d[i][1]*H];
+  const hl = currentFinger==='ring' ? HIGHLIGHT_RING : HIGHLIGHT_LIT;
+  const hlColor = currentFinger==='ring' ? '#a78bfa' : '#38bdf8';
+
+  // connections
+  ctx.lineWidth=1.5;
+  CONNECTIONS.forEach(([a,b])=>{
+    const pa=px(a),pb=px(b);
+    const isHL = hl.includes(a)||hl.includes(b);
+    ctx.strokeStyle = isHL ? hlColor : 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = isHL ? 2.5 : 1.2;
+    ctx.beginPath(); ctx.moveTo(pa[0],pa[1]); ctx.lineTo(pb[0],pb[1]); ctx.stroke();
+  });
+
+  // joints
+  for(let i=0;i<21;i++){
+    const [x,y]=px(i);
+    const isHL=hl.includes(i);
+    ctx.beginPath(); ctx.arc(x,y,isHL?5:3,0,Math.PI*2);
+    ctx.fillStyle = isHL ? hlColor : 'rgba(255,255,255,0.6)';
+    ctx.fill();
+    if(isHL){ ctx.strokeStyle='rgba(255,255,255,.8)'; ctx.lineWidth=1; ctx.stroke(); }
+  }
+
+  // angle labels
+  const joints = currentFinger==='ring'
+    ? [[RING_MCP,'MCP'],[RING_PIP,'PIP'],[RING_DIP,'DIP']]
+    : [[LIT_MCP,'MCP'],[LIT_PIP,'PIP'],[LIT_DIP,'DIP']];
+  joints.forEach(([idx,name])=>{
+    const [x,y]=px(idx);
+    ctx.font='bold 11px Space Mono, monospace';
+    ctx.fillStyle=hlColor;
+    ctx.fillText(name,x+6,y-6);
+  });
+}
+
+// ── UI helpers ───────────────────────────────────────────────────
+function colorClass(v){ if(v===null||isNaN(v))return ''; if(v>45)return 'high'; if(v>20)return 'med'; return 'low'; }
+
+function updateCards(mcp,pip,dip){
+  const fmt = v=>(v===null||isNaN(v))?'—':Math.round(v)+'°';
+  const maxA=90;
+  ['Mcp','Pip','Dip'].forEach((j,i)=>{
+    const v=[mcp,pip,dip][i];
+    const el=document.getElementById('val'+j);
+    const bar=document.getElementById('bar'+j);
+    el.textContent=fmt(v);
+    el.className='card-value '+(v!==null&&!isNaN(v)?colorClass(v):'');
+    bar.style.width=(v!==null&&!isNaN(v)?Math.min(Math.max(v/maxA*100,0),100):0)+'%';
+  });
+  document.getElementById('captureBtn').disabled = (mcp===null||isNaN(mcp));
+}
+
+function showSnack(msg='✓ Reading captured'){
+  const s=document.getElementById('snackbar');
+  s.textContent=msg;
+  s.classList.add('show');
+  setTimeout(()=>s.classList.remove('show'),2200);
+}
+
+// ── Globals for capture ─────────────────────────────────────────
+window._currentAngles={mcp:null,pip:null,dip:null};
+window._currentFinger='ring';
+window._currentMode='2d';
+
+window.setFinger=function(f){
+  currentFinger=f; window._currentFinger=f;
+  document.getElementById('tabRing').className='tab'+(f==='ring'?' active ring':'');
+  document.getElementById('tabLittle').className='tab'+(f==='little'?' active little':'');
+};
+
+window.setMode=function(m){
+  currentMode=m; window._currentMode=m;
+  document.getElementById('mode2d').className='mode-btn'+(m==='2d'?' active':'');
+  document.getElementById('mode3d').className='mode-btn'+(m==='3d'?' active':'');
+};
+
+window.captureReading=function(){
+  const {mcp,pip,dip}=window._currentAngles;
+  if(mcp===null||isNaN(mcp)) return;
+  const now=new Date();
+  const ts=now.toTimeString().slice(0,8);
+  const r={
+    n: log.length+1, ts,
+    patient: document.getElementById('patientId').value||'–',
+    hand: document.getElementById('handSide').value,
+    finger: window._currentFinger,
+    mode: window._currentMode,
+    mcp: isNaN(mcp)?null:Math.round(mcp*10)/10,
+    pip: isNaN(pip)?null:Math.round(pip*10)/10,
+    dip: isNaN(dip)?null:Math.round(dip*10)/10,
+  };
+  log.push(r);
+  renderLog();
+  showSnack();
+};
+
+window.clearLog=function(){
+  if(log.length===0) return;
+  if(confirm('Clear all captured readings?')){ log=[]; renderLog(); }
+};
+
+window.exportCSV=function(){
+  if(log.length===0){ showSnack('No readings to export'); return; }
+  const h='#,Time,Patient,Hand,Finger,Mode,MCPJ_deg,PIPJ_deg,DIPJ_deg\n';
+  const rows=log.map(r=>`${r.n},${r.ts},${r.patient},${r.hand},${r.finger},${r.mode},${r.mcp??''},${r.pip??''},${r.dip??''}`);
+  const blob=new Blob([h+rows.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`dupuytren_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+};
+
+function renderLog(){
+  const tbody=document.getElementById('logBody');
+  if(log.length===0){ tbody.innerHTML='<tr><td colspan="9" class="empty-log">No readings yet</td></tr>'; return; }
+  tbody.innerHTML=[...log].reverse().map(r=>`
+    <tr>
+      <td>${r.n}</td><td>${r.ts}</td>
+      <td>${r.patient}</td><td>${r.hand}</td>
+      <td class="log-finger-${r.finger}">${r.finger==='ring'?'Ring (D4)':'Little (D5)'}</td>
+      <td>${r.mode.toUpperCase()}</td>
+      <td>${r.mcp??'—'}°</td><td>${r.pip??'—'}°</td><td>${r.dip??'—'}°</td>
+    </tr>`).join('');
+}
+
+// ── Confidence display ───────────────────────────────────────────
+function updateConf(score){
+  const pct=Math.round(score*100);
+  document.getElementById('confBar').style.width=pct+'%';
+  document.getElementById('confVal').textContent=pct+'%';
+}
+
+// ── Main processing loop ──────────────────────────────────────────
+let lastVideoTime=-1;
+const video=document.getElementById('video');
+const overlay=document.getElementById('overlay');
+
+async function detect(){
+  if(!landmarker) { requestAnimationFrame(detect); return; }
+
+  // sync canvas size
+  if(overlay.width!==video.videoWidth||overlay.height!==video.videoHeight){
+    overlay.width=video.videoWidth||640; overlay.height=video.videoHeight||480;
+  }
+
+  if(video.currentTime !== lastVideoTime && video.readyState>=2){
+    lastVideoTime=video.currentTime;
+    const result=landmarker.detectForVideo(video,performance.now());
+
+    // FPS
+    frameCount++;
+    const now=Date.now();
+    if(now-lastFpsTime>1000){
+      document.getElementById('fpsDisplay').textContent=frameCount+' fps';
+      frameCount=0; lastFpsTime=now;
+    }
+
+    if(result.landmarks && result.landmarks.length>0){
+      const lm  = result.landmarks[0];
+      const wlm = result.worldLandmarks[0];
+
+      const raw2d = lm.map(l=>[l.x, l.y]);
+      const raw3d = wlm.map(l=>[l.x, l.y, l.z]);
+
+      const {s2,s3} = updateSmooth(raw2d, raw3d);
+      const angles = computeAngles(s2, s3);
+
+      const f=currentFinger, m=currentMode;
+      const mcp=angles[`${f}_mcp_${m}`];
+      const pip=angles[`${f}_pip_${m}`];
+      const dip=angles[`${f}_dip_${m}`];
+      window._currentAngles={mcp,pip,dip};
+
+      updateCards(mcp,pip,dip);
+      const conf=result.handednesses[0]?.[0]?.score??0;
+      updateConf(conf);
+      document.getElementById('statusDot').className='status-dot active';
+      drawLandmarks(s2, overlay);
+      handVisible=true;
+    } else {
+      if(handVisible){
+        document.getElementById('statusDot').className='status-dot';
+        updateCards(null,null,null);
+        updateConf(0);
+        buf2d=[]; buf3d=[];
+        drawLandmarks(null, overlay);
+        handVisible=false;
+      }
+    }
+  }
+  requestAnimationFrame(detect);
+}
+
+// ── Init ─────────────────────────────────────────────────────────
+async function init(){
+  try{
+    const vision = await FilesetResolver.forVisionTasks(
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+    );
+    landmarker = await HandLandmarker.createFromOptions(vision,{
+      baseOptions:{ modelAssetPath:"https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task", delegate:"GPU" },
+      runningMode:"VIDEO", numHands:1, minHandDetectionConfidence:0.6,
+      minHandPresenceConfidence:0.6, minTrackingConfidence:0.7
+    });
+    document.getElementById('loading').style.display='none';
+
+    // start camera
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:'environment', width:{ideal:1280}, height:{ideal:720} }
+    });
+    video.srcObject=stream;
+    video.onloadeddata=()=>{ video.play(); requestAnimationFrame(detect); };
+  } catch(e){
+    document.querySelector('.load-text').textContent='Error: '+e.message;
+    console.error(e);
+  }
+}
+
+// ── File upload (video) ──────────────────────────────────────────
+document.getElementById('fileInput').addEventListener('change',async e=>{
+  const file=e.target.files[0]; if(!file) return;
+  const url=URL.createObjectURL(file);
+  if(video.srcObject){ video.srcObject.getTracks().forEach(t=>t.stop()); video.srcObject=null; }
+  video.src=url; video.loop=true; video.play();
+  landmarker.setOptions({runningMode:'VIDEO'});
+});
+
+init();
+</script>
+</body>
+</html>
