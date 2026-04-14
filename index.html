@@ -415,28 +415,25 @@ function cross3(a,b){ return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1
 function angleDeg(v1,v2){ const c=Math.max(-1,Math.min(1,dot(norm(v1),norm(v2)))); return Math.acos(c)*180/Math.PI; }
 
 // Flexion = positive, hyperextension = negative
-// plane_normal = finger flex plane normal (points dorsally)
-// flexion: finger curls toward palm => cross(u,v) antiparallel to dorsal normal => sign +1
-function signedFlex3d(A,B,C,plane_normal){
+// camFlip = 1 for front camera, -1 for back camera (back camera sees hand from opposite side)
+function signedFlex3d(A,B,C,plane_normal,camFlip=1){
   const u=sub(A,B), v=sub(C,B);
   if(Math.hypot(...u)<1e-6||Math.hypot(...v)<1e-6||Math.hypot(...plane_normal)<1e-6) return NaN;
   const mag = 180 - angleDeg(u,v);
   const sign = dot(cross3(u,v), norm(plane_normal)) <= 0 ? 1 : -1;
-  return sign * mag;
+  return camFlip * sign * mag;
 }
 
 // 2D version: use 3D palm normal z-component to anchor sign anatomically
-// so it is consistent regardless of camera/phone orientation
-function signedFlex2d(A,B,C, pn3d){
+function signedFlex2d(A,B,C,pn3d,camFlip=1){
   const u=sub(A,B), v=sub(C,B);
   const nu=Math.hypot(...u), nv=Math.hypot(...v);
   if(nu<1e-6||nv<1e-6) return NaN;
   const mag = 180 - angleDeg(u,v);
-  const cz = u[0]*v[1] - u[1]*v[0]; // 2D cross z
-  // pn3d[2]: if positive, palm faces toward camera (back of hand away) => cz>0 means hyperext
+  const cz = u[0]*v[1] - u[1]*v[0];
   const dorsalZ = (pn3d && pn3d[2] !== undefined) ? pn3d[2] : -1;
   const sign = (dorsalZ >= 0) ? (cz >= 0 ? -1 : 1) : (cz >= 0 ? 1 : -1);
-  return sign * mag;
+  return camFlip * sign * mag;
 }
 
 function palmNormal3d(p){ return norm(cross3(sub(p[INDEX_MCP],p[WRIST]), sub(p[LIT_MCP],p[WRIST]))); }
@@ -464,23 +461,25 @@ function mcpProx2d(p2,MCP,PIP){
 }
 
 function computeAngles(p2, p3){
-  // Pass 3D palm normal to 2D functions so sign is anatomically grounded
   const pn3d_ring   = fingerFlexPlane3d(p3,RING_MCP,RING_PIP);
   const pn3d_little = fingerFlexPlane3d(p3,LIT_MCP,LIT_PIP);
   const palmN3d     = palmNormal3d(p3);
+  // Front camera: palm faces camera => normal points toward camera (+z) => camFlip=1
+  // Back camera:  back of hand faces camera => normal points away (-z) => camFlip=-1
+  const cf = usingFrontCamera ? 1 : -1;
   return {
-    ring_mcp_2d: signedFlex2d(mcpProx2d(p2,RING_MCP,RING_PIP), p2[RING_MCP], p2[RING_PIP], palmN3d),
-    ring_pip_2d: signedFlex2d(p2[RING_MCP], p2[RING_PIP], p2[RING_DIP], palmN3d),
-    ring_dip_2d: signedFlex2d(p2[RING_PIP], p2[RING_DIP], p2[RING_TIP], palmN3d),
-    ring_mcp_3d: signedFlex3d(mcpProx3d(p3,RING_MCP,RING_PIP), p3[RING_MCP], p3[RING_PIP], pn3d_ring),
-    ring_pip_3d: signedFlex3d(p3[RING_MCP], p3[RING_PIP], p3[RING_DIP], pn3d_ring),
-    ring_dip_3d: signedFlex3d(p3[RING_PIP], p3[RING_DIP], p3[RING_TIP], pn3d_ring),
-    little_mcp_2d: signedFlex2d(mcpProx2d(p2,LIT_MCP,LIT_PIP), p2[LIT_MCP], p2[LIT_PIP], palmN3d),
-    little_pip_2d: signedFlex2d(p2[LIT_MCP], p2[LIT_PIP], p2[LIT_DIP], palmN3d),
-    little_dip_2d: signedFlex2d(p2[LIT_PIP], p2[LIT_DIP], p2[LIT_TIP], palmN3d),
-    little_mcp_3d: signedFlex3d(mcpProx3d(p3,LIT_MCP,LIT_PIP), p3[LIT_MCP], p3[LIT_PIP], pn3d_little),
-    little_pip_3d: signedFlex3d(p3[LIT_MCP], p3[LIT_PIP], p3[LIT_DIP], pn3d_little),
-    little_dip_3d: signedFlex3d(p3[LIT_PIP], p3[LIT_DIP], p3[LIT_TIP], pn3d_little),
+    ring_mcp_2d: signedFlex2d(mcpProx2d(p2,RING_MCP,RING_PIP), p2[RING_MCP], p2[RING_PIP], palmN3d, cf),
+    ring_pip_2d: signedFlex2d(p2[RING_MCP], p2[RING_PIP], p2[RING_DIP], palmN3d, cf),
+    ring_dip_2d: signedFlex2d(p2[RING_PIP], p2[RING_DIP], p2[RING_TIP], palmN3d, cf),
+    ring_mcp_3d: signedFlex3d(mcpProx3d(p3,RING_MCP,RING_PIP), p3[RING_MCP], p3[RING_PIP], pn3d_ring, cf),
+    ring_pip_3d: signedFlex3d(p3[RING_MCP], p3[RING_PIP], p3[RING_DIP], pn3d_ring, cf),
+    ring_dip_3d: signedFlex3d(p3[RING_PIP], p3[RING_DIP], p3[RING_TIP], pn3d_ring, cf),
+    little_mcp_2d: signedFlex2d(mcpProx2d(p2,LIT_MCP,LIT_PIP), p2[LIT_MCP], p2[LIT_PIP], palmN3d, cf),
+    little_pip_2d: signedFlex2d(p2[LIT_MCP], p2[LIT_PIP], p2[LIT_DIP], palmN3d, cf),
+    little_dip_2d: signedFlex2d(p2[LIT_PIP], p2[LIT_DIP], p2[LIT_TIP], palmN3d, cf),
+    little_mcp_3d: signedFlex3d(mcpProx3d(p3,LIT_MCP,LIT_PIP), p3[LIT_MCP], p3[LIT_PIP], pn3d_little, cf),
+    little_pip_3d: signedFlex3d(p3[LIT_MCP], p3[LIT_PIP], p3[LIT_DIP], pn3d_little, cf),
+    little_dip_3d: signedFlex3d(p3[LIT_PIP], p3[LIT_DIP], p3[LIT_TIP], pn3d_little, cf),
   };
 }
 
