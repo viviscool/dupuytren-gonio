@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>DupuGonio — Flexion Contracture</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0d1117; --surface:#161b22; --surface2:#1e2530; --border:#30363d;
+  --accent:#4fc3f7; --accent2:#81c784; --accent3:#ffb74d; --warn:#ef5350;
+  --ring:#a78bfa; --little:#38bdf8;
+  --text:#e6edf3; --muted:#8b949e; --radius:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+header{
+  padding:14px 20px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);background:var(--surface);
+  position:sticky;top:0;z-index:100;
+}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),#0288d1);
+  border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;}
+.logo-title{font-family:'DM Serif Display',serif;font-size:18px;}
+.logo-sub{font-size:11px;color:var(--muted);margin-top:1px;}
+.status-pill{display:flex;align-items:center;gap:7px;padding:5px 13px;border-radius:100px;
+  background:var(--surface2);border:1px solid var(--border);font-size:12px;color:var(--muted);}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--muted);transition:background .3s;}
+.dot.active{background:var(--accent2);box-shadow:0 0 6px var(--accent2);animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+main{padding:16px;display:flex;flex-direction:column;gap:14px;max-width:560px;margin:0 auto;}
+.sec{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:7px;}
+.patient-row{display:flex;gap:10px;}
+.field{flex:1;}
+.field label{display:block;font-size:11px;color:var(--muted);margin-bottom:5px;}
+.field input,.field select{
+  width:100%;padding:9px 12px;border-radius:10px;
+  border:1px solid var(--border);background:var(--surface);
+  color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;
+}
+.field input:focus,.field select:focus{border-color:var(--accent);}
+.video-wrap{
+  width:100%;aspect-ratio:4/3;border-radius:var(--radius);overflow:hidden;
+  position:relative;background:#000;border:1px solid var(--border);
+}
+.video-wrap video{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;}
+.video-wrap canvas{position:absolute;top:0;left:0;width:100%;height:100%;}
+.vid-badge{position:absolute;top:10px;left:10px;background:rgba(0,0,0,.75);
+  backdrop-filter:blur(8px);border:1px solid var(--border);
+  padding:4px 10px;border-radius:20px;font-size:11px;font-family:monospace;color:var(--accent);z-index:10;}
+.vid-btns{position:absolute;top:10px;right:10px;display:flex;gap:8px;z-index:10;}
+.vid-btn{background:rgba(0,0,0,.75);backdrop-filter:blur(8px);border:1px solid var(--border);
+  border-radius:20px;padding:5px 12px;font-size:12px;color:var(--text);cursor:pointer;
+  font-family:'DM Sans',sans-serif;}
+.tabs{display:flex;gap:8px;}
+.tab{flex:1;padding:10px 0;border-radius:10px;border:1px solid var(--border);
+  background:var(--surface);text-align:center;cursor:pointer;
+  font-size:13px;font-weight:500;transition:all .2s;color:var(--muted);
+  font-family:'DM Sans',sans-serif;}
+.tab.active-ring{background:rgba(167,139,250,.15);border-color:var(--ring);color:var(--ring);}
+.tab.active-little{background:rgba(56,189,248,.15);border-color:var(--little);color:var(--little);}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.card{background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius);padding:14px 10px 10px;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  position:relative;overflow:hidden;transition:border-color .3s;}
+.card-label{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
+.card-value{font-family:'DM Serif Display',serif;font-size:34px;line-height:1;color:var(--text);transition:color .3s;}
+.card-value.flex{color:var(--accent2);}
+.card-value.flex-high{color:var(--accent3);}
+.card-value.flex-severe{color:var(--warn);}
+.card-value.hyper{color:var(--accent);}
+.card-sub{font-size:10px;color:var(--muted);}
+.card-bar{position:absolute;bottom:0;left:0;height:3px;transition:width .25s;border-radius:0 2px 2px 0;}
+.capture-row{display:flex;gap:10px;}
+.btn-capture{flex:1;padding:15px;border-radius:var(--radius);border:none;cursor:pointer;
+  background:linear-gradient(135deg,var(--accent),#0288d1);color:#000;
+  font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;
+  transition:opacity .2s,transform .1s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.btn-capture:active{transform:scale(.97);}
+.btn-capture:disabled{opacity:.35;cursor:not-allowed;}
+.btn-export{padding:15px 18px;border-radius:var(--radius);border:1px solid var(--border);
+  background:var(--surface);color:var(--text);cursor:pointer;font-size:18px;transition:border-color .2s;}
+.btn-export:hover{border-color:var(--accent);}
+.info{background:rgba(79,195,247,.06);border:1px solid rgba(79,195,247,.2);
+  border-radius:10px;padding:10px 14px;font-size:12px;color:rgba(79,195,247,.9);line-height:1.55;}
+.log-header{display:flex;align-items:center;justify-content:space-between;}
+.log-clear{font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline;}
+.log-clear:hover{color:var(--warn);}
+.table-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border);margin-top:8px;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+thead tr{background:var(--surface);}
+th{padding:8px 10px;text-align:left;color:var(--muted);font-size:10px;
+   font-weight:600;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;}
+td{padding:8px 10px;border-top:1px solid var(--border);white-space:nowrap;}
+tr:hover td{background:var(--surface);}
+.ring-col{color:var(--ring);font-weight:600;}
+.little-col{color:var(--little);font-weight:600;}
+.empty-row{padding:24px;text-align:center;color:var(--muted);font-size:13px;}
+#loading{position:fixed;inset:0;z-index:200;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;}
+.spinner{width:44px;height:44px;border:3px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-text{font-size:13px;color:var(--muted);font-family:monospace;}
+#snack{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);
+  background:var(--surface2);border:1px solid var(--accent2);
+  padding:10px 20px;border-radius:20px;font-size:13px;z-index:300;
+  transition:transform .3s;white-space:nowrap;pointer-events:none;}
+#snack.show{transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div class="load-text">Loading hand tracking model…</div>
+</div>
+<div id="snack">✓ Reading captured</div>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">✋</div>
+    <div>
+      <div class="logo-title">DupuGonio</div>
+      <div class="logo-sub">Flexion Contracture</div>
+    </div>
+  </div>
+  <div class="status-pill">
+    <div class="dot" id="statusDot"></div>
+    <span id="statusText">Starting…</span>
+  </div>
+</header>
+
+<main>
+  <div>
+    <div class="sec">Patient</div>
+    <div class="patient-row">
+      <div class="field">
+        <label>Patient ID</label>
+        <input type="text" id="patientId" placeholder="e.g. PT001" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Hand</label>
+        <select id="handSide">
+          <option value="R">Right</option>
+          <option value="L">Left</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="sec">Camera</div>
+    <div class="video-wrap">
+      <video id="video" autoplay muted playsinline></video>
+      <canvas id="overlay"></canvas>
+      <div class="vid-badge" id="fpsBadge">— fps</div>
+      <div class="vid-btns">
+        <button class="vid-btn" onclick="flipCamera()">🔄</button>
+        <label class="vid-btn" for="fileInput">📁</label>
+        <input type="file" id="fileInput" accept="video/*" style="display:none">
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="sec">Finger</div>
+    <div class="tabs">
+      <button class="tab active-ring"  id="tabRing"   onclick="setFinger('ring')">Ring (D4)</button>
+      <button class="tab"              id="tabLittle" onclick="setFinger('little')">Little (D5)</button>
+    </div>
+  </div>
+
+  <div>
+    <div class="sec">Live Angles</div>
+    <div class="cards">
+      <div class="card">
+        <div class="card-label">MCPJ</div>
+        <div class="card-value" id="valMcp">—</div>
+        <div class="card-sub">degrees</div>
+        <div class="card-bar" id="barMcp" style="background:var(--accent);width:0%"></div>
+      </div>
+      <div class="card">
+        <div class="card-label">PIPJ</div>
+        <div class="card-value" id="valPip">—</div>
+        <div class="card-sub">degrees</div>
+        <div class="card-bar" id="barPip" style="background:var(--accent3);width:0%"></div>
+      </div>
+      <div class="card">
+        <div class="card-label">DIPJ</div>
+        <div class="card-value" id="valDip">—</div>
+        <div class="card-sub">degrees</div>
+        <div class="card-bar" id="barDip" style="background:var(--ring);width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="capture-row">
+    <button class="btn-capture" id="captureBtn" onclick="captureReading()" disabled>
+      📐 Capture Reading
+    </button>
+    <button class="btn-export" title="Export CSV" onclick="exportCSV()">⬇️</button>
+  </div>
+
+  <div class="info">
+    💡 <strong>Tip:</strong> Lateral view, thumb pointing up. Flexion = positive°, hyperextension = negative°. Works with front or back camera, left or right hand.
+  </div>
+
+  <div>
+    <div class="log-header">
+      <div class="sec" style="margin:0">Captured Readings</div>
+      <div class="log-clear" onclick="clearLog()">Clear all</div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>#</th><th>Time</th><th>Patient</th><th>Hand</th><th>Finger</th><th>MCPJ°</th><th>PIPJ°</th><th>DIPJ°</th></tr>
+        </thead>
+        <tbody id="logBody">
+          <tr><td colspan="8" class="empty-row">No readings yet</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+import { FilesetResolver, HandLandmarker }
+  from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+// ── Landmark indices ─────────────────────────────────────────────
+const WRIST=0, INDEX_MCP=5, LIT_MCP=17;
+const RING_MCP=13, RING_PIP=14, RING_DIP=15, RING_TIP=16;
+const LIT_PIP=18,  LIT_DIP=19,  LIT_TIP=20;
+
+// ── State ────────────────────────────────────────────────────────
+let landmarker=null, currentFinger='ring', log=[];
+let usingFrontCamera=false, handVisible=false;
+let frameCount=0, lastFpsTime=Date.now(), lastTime=-1;
+let buf3d=[];
+const SMOOTH=5;
+
+// ── 3-D vector helpers ───────────────────────────────────────────
+function v3(a,b)   { return [b[0]-a[0], b[1]-a[1], b[2]-a[2]]; }
+function dot(a,b)  { return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+function norm(a)   { const n=Math.sqrt(dot(a,a))+1e-9; return [a[0]/n,a[1]/n,a[2]/n]; }
+function cross(a,b){ return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; }
+
+// ── Angle calculation ────────────────────────────────────────────
+// Mirrors the shoulder ER method: atan2(flexion_component, extension_component)
+// where flexion_component = how much distal bone moves toward palm
+//       extension_component = how much distal bone continues along proximal bone
+//
+// flexAxis = palmar direction projected perpendicular to the proximal bone
+//          = palmar - dot(palmar, proxVec)*proxVec, normalised
+//
+// Verified by simulation to give correct sign for:
+//   - Right hand / Left hand
+//   - Front camera (palm facing) / Back camera (dorsum facing)
+//   - Any finger orientation (thumb up, little up, etc.)
+
+function palmNormal(p) {
+  // cross(wrist→indexMCP, wrist→littleMCP) = dorsal direction
+  const wi = v3(p[WRIST], p[INDEX_MCP]);
+  const wl = v3(p[WRIST], p[LIT_MCP]);
+  return norm(cross(wi, wl));
+}
+
+function signedAngle(A, B, C, pn) {
+  // A=proximal point, B=joint centre, C=distal point, pn=palm dorsal normal
+  const proxVec = norm(v3(A, B));   // direction of proximal bone
+  const distal  = norm(v3(B, C));   // direction of distal bone
+  const palmar  = [-pn[0],-pn[1],-pn[2]];  // opposite of dorsal
+
+  // flexAxis = palmar projected onto plane perpendicular to proxVec
+  const d = dot(palmar, proxVec);
+  const fx = palmar[0]-d*proxVec[0];
+  const fy = palmar[1]-d*proxVec[1];
+  const fz = palmar[2]-d*proxVec[2];
+  const flexAxis = norm([fx,fy,fz]);
+
+  return Math.atan2(dot(distal, flexAxis), dot(distal, proxVec)) * 180/Math.PI;
+}
+
+function mcpProximal(p, MCP, PIP) {
+  // Virtual proximal point: extend metacarpal axis backward from MCP
+  const pn  = palmNormal(p);
+  const raw = v3(p[WRIST], p[MCP]);
+  const d   = dot(raw, pn);
+  let ax = norm([raw[0]-d*pn[0], raw[1]-d*pn[1], raw[2]-d*pn[2]]);
+  if(dot(ax, v3(p[MCP],p[PIP])) < 0) ax=[-ax[0],-ax[1],-ax[2]];
+  return [p[MCP][0]-ax[0], p[MCP][1]-ax[1], p[MCP][2]-ax[2]];
+}
+
+function computeAngles(p) {
+  const pn = palmNormal(p);
+  return {
+    ring_mcp: signedAngle(mcpProximal(p,RING_MCP,RING_PIP), p[RING_MCP], p[RING_PIP], pn),
+    ring_pip: signedAngle(p[RING_MCP], p[RING_PIP], p[RING_DIP], pn),
+    ring_dip: signedAngle(p[RING_PIP], p[RING_DIP], p[RING_TIP], pn),
+    little_mcp: signedAngle(mcpProximal(p,LIT_MCP,LIT_PIP), p[LIT_MCP], p[LIT_PIP], pn),
+    little_pip: signedAngle(p[LIT_MCP], p[LIT_PIP], p[LIT_DIP], pn),
+    little_dip: signedAngle(p[LIT_PIP], p[LIT_DIP], p[LIT_TIP], pn),
+  };
+}
+
+// ── Smoothing ────────────────────────────────────────────────────
+function smooth(raw) {
+  buf3d.push(raw.map(l=>[l.x,l.y,l.z]));
+  if(buf3d.length>SMOOTH) buf3d.shift();
+  const n=buf3d.length, npts=raw.length;
+  return Array.from({length:npts},(_,i)=>[0,1,2].map(j=>buf3d.reduce((s,f)=>s+f[i][j],0)/n));
+}
+
+// ── Canvas drawing ───────────────────────────────────────────────
+// KEY technique (same as working shoulder app):
+//   video: CSS transform:scaleX(-1) for front camera only
+//   canvas: NO CSS transform ever
+//   drawing: ctx.save(); ctx.scale(-1,1); ctx.translate(-W,0); ... ctx.restore()
+//   This makes landmarks drawn at lmks[i].x*W, lmks[i].y*H align with mirrored video.
+//   For back camera: no CSS mirror, no ctx mirror. Landmarks drawn straight.
+
+const CONNECTIONS=[
+  [0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],
+  [5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],
+  [13,17],[17,18],[18,19],[19,20],[0,17],[0,9]
+];
+const RING_PTS=[13,14,15,16], LIT_PTS=[17,18,19,20];
+
+function drawOverlay(lm2d, canvas, angles) {
+  const vid = document.getElementById('video');
+  const W = vid.videoWidth||640, H = vid.videoHeight||480;
+  if(canvas.width!==W||canvas.height!==H){ canvas.width=W; canvas.height=H; }
+
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  if(!lm2d) return;
+
+  ctx.save();
+  if(usingFrontCamera) { ctx.scale(-1,1); ctx.translate(-W,0); }
+
+  const px = i => [lm2d[i].x*W, lm2d[i].y*H];
+  const hl    = currentFinger==='ring' ? RING_PTS : LIT_PTS;
+  const hlCol = currentFinger==='ring' ? '#a78bfa' : '#38bdf8';
+
+  CONNECTIONS.forEach(([a,b])=>{
+    const [ax,ay]=px(a),[bx,by]=px(b);
+    const isHL=hl.includes(a)||hl.includes(b);
+    ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by);
+    ctx.strokeStyle=isHL?hlCol:'rgba(255,255,255,0.25)';
+    ctx.lineWidth=isHL?3:1.5; ctx.stroke();
+  });
+
+  for(let i=0;i<21;i++){
+    const [x,y]=px(i), isHL=hl.includes(i);
+    ctx.beginPath(); ctx.arc(x,y,isHL?6:3,0,Math.PI*2);
+    ctx.fillStyle=isHL?hlCol:'rgba(255,255,255,0.6)'; ctx.fill();
+    if(isHL){ctx.strokeStyle='rgba(255,255,255,.9)';ctx.lineWidth=1.5;ctx.stroke();}
+  }
+
+  const joints = currentFinger==='ring'
+    ? [[RING_MCP,'MCP',angles?.mcp],[RING_PIP,'PIP',angles?.pip],[RING_DIP,'DIP',angles?.dip]]
+    : [[LIT_MCP,'MCP',angles?.mcp],[LIT_PIP,'PIP',angles?.pip],[LIT_DIP,'DIP',angles?.dip]];
+
+  joints.forEach(([idx,name,val])=>{
+    const [x,y]=px(idx);
+    const label=(val!==null&&!isNaN(val))?`${name} ${Math.round(val)}°`:name;
+    ctx.font='bold 12px monospace';
+    ctx.lineWidth=3; ctx.strokeStyle='rgba(0,0,0,.85)'; ctx.strokeText(label,x+8,y-8);
+    ctx.fillStyle=hlCol; ctx.fillText(label,x+8,y-8);
+  });
+
+  ctx.restore();
+}
+
+// ── UI ───────────────────────────────────────────────────────────
+function angleClass(v){
+  if(v===null||isNaN(v)) return '';
+  if(v<0) return 'hyper';
+  if(v>45) return 'flex-severe';
+  if(v>20) return 'flex-high';
+  return 'flex';
+}
+
+let _angles={mcp:null,pip:null,dip:null};
+
+function updateCards(mcp,pip,dip){
+  _angles={mcp,pip,dip};
+  const fmt=v=>(v===null||isNaN(v))?'—':Math.round(v)+'°';
+  [['Mcp',mcp],['Pip',pip],['Dip',dip]].forEach(([j,v])=>{
+    document.getElementById('val'+j).textContent=fmt(v);
+    document.getElementById('val'+j).className='card-value '+angleClass(v);
+    const pct=(v!==null&&!isNaN(v))?Math.min(Math.abs(v)/90*100,100):0;
+    document.getElementById('bar'+j).style.width=pct+'%';
+  });
+  document.getElementById('captureBtn').disabled=(mcp===null||isNaN(mcp));
+}
+
+function setStatus(active,text){
+  document.getElementById('statusDot').className='dot'+(active?' active':'');
+  document.getElementById('statusText').textContent=text;
+}
+
+function snack(msg='✓ Reading captured'){
+  const el=document.getElementById('snack');
+  el.textContent=msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2200);
+}
+
+window.setFinger=function(f){
+  currentFinger=f;
+  document.getElementById('tabRing').className='tab'+(f==='ring'?' active-ring':'');
+  document.getElementById('tabLittle').className='tab'+(f==='little'?' active-little':'');
+};
+
+window.captureReading=function(){
+  const {mcp,pip,dip}=_angles;
+  if(mcp===null||isNaN(mcp)) return;
+  const ts=new Date().toTimeString().slice(0,8);
+  const r={
+    n:log.length+1,ts,
+    patient:document.getElementById('patientId').value||'—',
+    hand:document.getElementById('handSide').value,
+    finger:currentFinger,
+    mcp:Math.round(mcp*10)/10,
+    pip:Math.round(pip*10)/10,
+    dip:Math.round(dip*10)/10,
+  };
+  log.push(r); renderLog(); snack();
+};
+
+window.clearLog=function(){
+  if(!log.length) return;
+  if(confirm('Clear all readings?')){log=[];renderLog();}
+};
+
+window.exportCSV=function(){
+  if(!log.length){snack('No readings to export');return;}
+  const h='#,Time,Patient,Hand,Finger,MCPJ_deg,PIPJ_deg,DIPJ_deg\n';
+  const rows=log.map(r=>`${r.n},${r.ts},${r.patient},${r.hand},${r.finger},${r.mcp},${r.pip},${r.dip}`);
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([h+rows.join('\n')],{type:'text/csv'}));
+  a.download=`dupuytren_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+};
+
+function renderLog(){
+  const tb=document.getElementById('logBody');
+  if(!log.length){tb.innerHTML='<tr><td colspan="8" class="empty-row">No readings yet</td></tr>';return;}
+  tb.innerHTML=[...log].reverse().map(r=>`<tr>
+    <td>${r.n}</td><td>${r.ts}</td><td>${r.patient}</td><td>${r.hand}</td>
+    <td class="${r.finger==='ring'?'ring-col':'little-col'}">${r.finger==='ring'?'Ring (D4)':'Little (D5)'}</td>
+    <td>${r.mcp}°</td><td>${r.pip}°</td><td>${r.dip}°</td>
+  </tr>`).join('');
+}
+
+// ── Detection loop ───────────────────────────────────────────────
+const video=document.getElementById('video');
+const overlay=document.getElementById('overlay');
+
+function loop(ts){
+  requestAnimationFrame(loop);
+  if(!landmarker||video.readyState<2||video.paused) return;
+  if(video.currentTime===lastTime) return;
+  lastTime=video.currentTime;
+
+  const result=landmarker.detectForVideo(video, ts||performance.now());
+
+  frameCount++;
+  const now=Date.now();
+  if(now-lastFpsTime>1000){
+    document.getElementById('fpsBadge').textContent=frameCount+' fps';
+    frameCount=0; lastFpsTime=now;
+  }
+
+  if(result.landmarks?.length>0){
+    const lm2d=result.landmarks[0];
+    const lm3d=result.worldLandmarks[0];
+    const s3d=smooth(lm3d);
+    const angles=computeAngles(s3d);
+    const f=currentFinger;
+    const mcp=angles[`${f}_mcp`], pip=angles[`${f}_pip`], dip=angles[`${f}_dip`];
+    updateCards(mcp,pip,dip);
+    setStatus(true,'Hand detected');
+    drawOverlay(lm2d,overlay,{mcp,pip,dip});
+    handVisible=true;
+  } else {
+    if(handVisible){
+      updateCards(null,null,null);
+      setStatus(false,'No hand detected');
+      drawOverlay(null,overlay,null);
+      buf3d=[]; handVisible=false;
+    }
+  }
+}
+
+// ── Camera ───────────────────────────────────────────────────────
+async function startCamera(facing='environment'){
+  if(video.srcObject) video.srcObject.getTracks().forEach(t=>t.stop());
+  video.srcObject=null; video.src='';
+  usingFrontCamera=(facing==='user');
+  video.style.transform=usingFrontCamera?'scaleX(-1)':'none';
+  const stream=await navigator.mediaDevices.getUserMedia({
+    video:{facingMode:facing, width:{ideal:1920}, height:{ideal:1080}}
+  });
+  video.srcObject=stream;
+  await new Promise(r=>{video.onloadeddata=r;});
+  video.play();
+  buf3d=[]; lastTime=-1;
+}
+
+window.flipCamera=async function(){
+  await startCamera(usingFrontCamera?'environment':'user');
+};
+
+document.getElementById('fileInput').addEventListener('change',e=>{
+  const file=e.target.files[0]; if(!file) return;
+  if(video.srcObject) video.srcObject.getTracks().forEach(t=>t.stop());
+  video.srcObject=null; video.style.transform='none'; usingFrontCamera=false;
+  video.src=URL.createObjectURL(file); video.loop=true; video.play();
+  buf3d=[]; lastTime=-1;
+});
+
+// ── Init ─────────────────────────────────────────────────────────
+async function init(){
+  try{
+    const vision=await FilesetResolver.forVisionTasks(
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+    );
+    const opts={
+      baseOptions:{
+        modelAssetPath:'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+        delegate:'GPU'
+      },
+      runningMode:'VIDEO', numHands:1,
+      minHandDetectionConfidence:0.6,
+      minHandPresenceConfidence:0.6,
+      minTrackingConfidence:0.7
+    };
+    try{ landmarker=await HandLandmarker.createFromOptions(vision,opts); }
+    catch(e){ opts.baseOptions.delegate='CPU'; landmarker=await HandLandmarker.createFromOptions(vision,opts); }
+
+    document.getElementById('loading').style.display='none';
+    setStatus(false,'Ready');
+    await startCamera('environment');
+    requestAnimationFrame(loop);
+  } catch(e){
+    document.querySelector('.load-text').textContent='Error: '+e.message;
+    console.error(e);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
