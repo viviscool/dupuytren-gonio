@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>DupuGonio</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0d1117; --surface:#161b22; --surface2:#1e2530; --border:#30363d;
+  --accent:#4fc3f7; --accent2:#81c784; --accent3:#ffb74d; --warn:#ef5350;
+  --ring:#a78bfa; --little:#38bdf8;
+  --text:#e6edf3; --muted:#8b949e; --r:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+header{padding:12px 18px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100;}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-icon{width:34px;height:34px;background:linear-gradient(135deg,var(--accent),#0288d1);
+  border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;}
+.logo-title{font-family:'DM Serif Display',serif;font-size:17px;}
+.logo-sub{font-size:10px;color:var(--muted);}
+.pill{display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:100px;
+  background:var(--surface2);border:1px solid var(--border);font-size:11px;color:var(--muted);}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--muted);}
+.dot.on{background:var(--accent2);box-shadow:0 0 6px var(--accent2);animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+main{padding:14px;display:flex;flex-direction:column;gap:12px;max-width:560px;margin:0 auto;}
+.sec{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;}
+
+.row{display:flex;gap:10px;}
+.field{flex:1;}
+.field label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;}
+.field input,.field select{width:100%;padding:8px 11px;border-radius:9px;
+  border:1px solid var(--border);background:var(--surface);color:var(--text);
+  font-size:13px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;}
+.field input:focus,.field select:focus{border-color:var(--accent);}
+
+/* ── Video container ── */
+/* The official MediaPipe demo approach:
+   - video and canvas are BOTH position:absolute, same size
+   - NO CSS transforms on either element
+   - canvas is drawn with DrawingUtils which handles coordinate mapping
+   - mirroring is achieved by ctx.scale(-1,1) on the canvas context only when needed */
+.vid-wrap{position:relative;width:100%;aspect-ratio:4/3;
+  background:#000;border-radius:var(--r);overflow:hidden;border:1px solid var(--border);}
+#video{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;}
+#canvas{position:absolute;top:0;left:0;width:100%;height:100%;}
+.fps{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);
+  border:1px solid var(--border);padding:3px 9px;border-radius:20px;
+  font-size:11px;font-family:monospace;color:var(--accent);z-index:5;}
+.vid-btns{position:absolute;top:8px;right:8px;display:flex;gap:7px;z-index:5;}
+.vbtn{background:rgba(0,0,0,.7);backdrop-filter:blur(6px);border:1px solid var(--border);
+  border-radius:20px;padding:5px 11px;font-size:12px;color:var(--text);cursor:pointer;
+  font-family:'DM Sans',sans-serif;}
+
+.tabs{display:flex;gap:8px;}
+.tab{flex:1;padding:9px 0;border-radius:9px;border:1px solid var(--border);
+  background:var(--surface);text-align:center;cursor:pointer;
+  font-size:13px;font-weight:500;color:var(--muted);font-family:'DM Sans',sans-serif;transition:all .15s;}
+.tab.r{background:rgba(167,139,250,.15);border-color:var(--ring);color:var(--ring);}
+.tab.l{background:rgba(56,189,248,.15);border-color:var(--little);color:var(--little);}
+
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;}
+.card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);
+  padding:13px 8px 9px;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;overflow:hidden;}
+.clabel{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
+.cval{font-family:'DM Serif Display',serif;font-size:32px;line-height:1;color:var(--text);}
+.cval.flex{color:var(--accent2);}
+.cval.high{color:var(--accent3);}
+.cval.severe{color:var(--warn);}
+.cval.hyper{color:var(--accent);}
+.csub{font-size:10px;color:var(--muted);}
+.cbar{position:absolute;bottom:0;left:0;height:3px;border-radius:0 2px 2px 0;transition:width .2s;}
+
+.btn-row{display:flex;gap:9px;}
+.btn-cap{flex:1;padding:14px;border-radius:var(--r);border:none;cursor:pointer;
+  background:linear-gradient(135deg,var(--accent),#0288d1);color:#000;
+  font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;
+  transition:opacity .15s,transform .1s;}
+.btn-cap:active{transform:scale(.97);}
+.btn-cap:disabled{opacity:.35;cursor:not-allowed;}
+.btn-exp{padding:14px 16px;border-radius:var(--r);border:1px solid var(--border);
+  background:var(--surface);color:var(--text);cursor:pointer;font-size:17px;}
+
+.info{background:rgba(79,195,247,.05);border:1px solid rgba(79,195,247,.18);
+  border-radius:9px;padding:9px 13px;font-size:12px;color:rgba(79,195,247,.85);line-height:1.5;}
+
+.log-hdr{display:flex;align-items:center;justify-content:space-between;}
+.clr{font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline;}
+.clr:hover{color:var(--warn);}
+.tbl-wrap{overflow-x:auto;border-radius:9px;border:1px solid var(--border);margin-top:7px;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+thead tr{background:var(--surface);}
+th{padding:7px 9px;text-align:left;color:var(--muted);font-size:10px;
+  font-weight:600;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;}
+td{padding:7px 9px;border-top:1px solid var(--border);white-space:nowrap;}
+tr:hover td{background:var(--surface);}
+.rc{color:var(--ring);font-weight:600;} .lc{color:var(--little);font-weight:600;}
+.empty{padding:22px;text-align:center;color:var(--muted);font-size:13px;}
+
+#loading{position:fixed;inset:0;z-index:200;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+.spin{width:42px;height:42px;border:3px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ltxt{font-size:13px;color:var(--muted);font-family:monospace;}
+
+#snack{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(70px);
+  background:var(--surface2);border:1px solid var(--accent2);padding:9px 18px;
+  border-radius:20px;font-size:13px;z-index:300;transition:transform .25s;
+  white-space:nowrap;pointer-events:none;}
+#snack.show{transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div id="loading"><div class="spin"></div><div class="ltxt" id="ltxt">Loading hand tracking…</div></div>
+<div id="snack">✓ Captured</div>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">✋</div>
+    <div><div class="logo-title">DupuGonio</div><div class="logo-sub">Flexion Contracture</div></div>
+  </div>
+  <div class="pill"><div class="dot" id="dot"></div><span id="stxt">Starting…</span></div>
+</header>
+
+<main>
+  <div>
+    <div class="sec">Patient</div>
+    <div class="row">
+      <div class="field"><label>Patient ID</label><input id="pid" type="text" placeholder="PT001" autocomplete="off"></div>
+      <div class="field"><label>Hand</label><select id="hside"><option value="R">Right</option><option value="L">Left</option></select></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="sec">Camera</div>
+    <div class="vid-wrap">
+      <video id="video" autoplay muted playsinline></video>
+      <canvas id="canvas"></canvas>
+      <div class="fps" id="fps">— fps</div>
+      <div class="vid-btns">
+        <button class="vbtn" onclick="flipCam()">🔄</button>
+        <label class="vbtn" for="filein">📁</label>
+        <input type="file" id="filein" accept="video/*" style="display:none">
+      </div>
+    </div>
+  </div>
+
+  <div id="viewQ" style="font-size:12px;text-align:center;padding:4px 0;color:var(--muted);">Detecting hand…</div>
+
+  <div>
+    <div class="sec">Finger</div>
+    <div class="tabs">
+      <button class="tab r" id="tabR" onclick="setFinger('ring')">Ring (D4)</button>
+      <button class="tab"   id="tabL" onclick="setFinger('little')">Little (D5)</button>
+    </div>
+  </div>
+
+  <div>
+    <div class="sec">Live Angles</div>
+    <div class="cards">
+      <div class="card"><div class="clabel">MCPJ</div><div class="cval" id="vM">—</div><div class="csub">deg</div><div class="cbar" id="bM" style="background:var(--accent);width:0"></div></div>
+      <div class="card"><div class="clabel">PIPJ</div><div class="cval" id="vP">—</div><div class="csub">deg</div><div class="cbar" id="bP" style="background:var(--accent3);width:0"></div></div>
+      <div class="card"><div class="clabel">DIPJ</div><div class="cval" id="vD">—</div><div class="csub">deg</div><div class="cbar" id="bD" style="background:var(--ring);width:0"></div></div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn-cap" id="capBtn" onclick="capture()" disabled>📐 Capture Reading</button>
+    <button class="btn-exp" onclick="exportCSV()">⬇️</button>
+  </div>
+
+  <div class="info">💡 Lateral view, thumb up. <strong>Flexion = positive°, hyperextension = negative°.</strong> Front or back camera, left or right hand.</div>
+
+  <div>
+    <div class="log-hdr">
+      <div class="sec" style="margin:0">Readings</div>
+      <div class="clr" onclick="clearLog()">Clear</div>
+    </div>
+    <div class="tbl-wrap">
+      <table><thead><tr><th>#</th><th>Time</th><th>Patient</th><th>Hand</th><th>Finger</th><th>MCP°</th><th>PIP°</th><th>DIP°</th></tr></thead>
+      <tbody id="logBody"><tr><td colspan="8" class="empty">No readings yet</td></tr></tbody></table>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+// ── Official MediaPipe import — same as their demo ─────────────
+import {
+  FilesetResolver,
+  HandLandmarker,
+  DrawingUtils
+} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/vision_bundle.mjs";
+
+// ── Landmark indices ───────────────────────────────────────────
+const W=0, THUMB_CMC=1, I5=5, I9=9, I13=13, I14=14, I15=15, I16=16;
+const I17=17, I18=18, I19=19, I20=20;
+
+// ── State ──────────────────────────────────────────────────────
+let hl=null, drawer=null, finger='ring', log=[];
+let isFront=false, handSeen=false, lastT=-1;
+let fc=0, fpsT=Date.now();
+let _angles={mcp:null,pip:null,dip:null};
+
+const video  = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+
+// ── Math ───────────────────────────────────────────────────────
+function v3(a,b)  { return [b[0]-a[0],b[1]-a[1],b[2]-a[2]]; }
+function dot(a,b) { return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+function norm(a)  { const n=Math.sqrt(dot(a,a))+1e-9; return [a[0]/n,a[1]/n,a[2]/n]; }
+function cross(a,b){ return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]]; }
+
+// ── Angle calculation ──────────────────────────────────────────
+// Implements the clinical goniometry specification exactly.
+//
+// METHOD: 2D IMAGE LANDMARKS for all angle computation.
+//
+// Why 2D and not 3D world landmarks:
+//   The 3D formula fails for highly flexed fingers because the local
+//   "palmar" direction of each phalanx rotates with the kinematic chain.
+//   When PIP > ~90°, the mid-phalanx points toward global palmar, making
+//   e_palm degenerate in the 3D formula. The 2D image projection avoids
+//   this entirely — in lateral view the angles are directly visible as 2D
+//   rotations in the image plane regardless of flexion magnitude.
+//
+// SIGNED ROTATION (atan2 in local sagittal frame):
+//   For each joint B (proximal landmark A, distal landmark C):
+//   AB_n = norm(B - A)   = proximal bone direction (pointing distally)
+//   BC_n = norm(C - B)   = distal bone direction
+//   e_palm = the perpendicular to AB_n that lies on the FLEXION side
+//   angle = atan2(dot(BC_n, e_palm), dot(BC_n, AB_n))
+//
+//   Positive = flexion (toward palm), Negative = hyperextension (toward dorsum).
+//   Range (-180°, +180°]. Handles severe flexion >90° correctly — never collapses.
+//
+// e_palm DETERMINATION (key fix):
+//   Flexion direction in the image is a FIXED rotation (CW or CCW in Y-down coords)
+//   determined by which way the palm faces, NOT by projecting global palmar onto AB_n.
+//   - pn[0] < 0 → dorsal faces LEFT → palm faces RIGHT → flexion = visual CW in image
+//                                                       = math CCW = perp_ccw of AB_n
+//   - pn[0] > 0 → dorsal faces RIGHT → palm faces LEFT → flexion = visual CCW in image
+//                                                        = math CW = perp_cw of AB_n
+//   This is stable for ALL flexion angles including >90° and compound flexion.
+//
+// palmNormal orientation:
+//   pn = cross(wrist→index_MCP, wrist→little_MCP), then corrected so it points DORSALLY:
+//   Thumb CMC (lm1) is always palmar → if dot(pn, wrist→thumbCMC) > 0, negate pn.
+//
+// Landmark usage:
+//   MCP: A = MIDDLE_MCP(9) for ring, RING_MCP(13) for little (dorsal knuckle row reference)
+//   PIP: A = MCP, B = PIP, C = DIP
+//   DIP: A = PIP, B = DIP, C = TIP
+//   The stationary arm reference (A) for MCP matches clinical goniometer placement —
+//   along the dorsal knuckle ridge rather than the wrist crease.
+
+function palmNormal(p){
+  let pn = norm(cross(v3(p[W],p[I5]), v3(p[W],p[I17])));
+  if(dot(pn, v3(p[W],p[THUMB_CMC])) > 0) pn = [-pn[0],-pn[1],-pn[2]];
+  return pn;
+}
+
+function signedFlex(lm2d, Ai, Bi, Ci, pn3d){
+  // 2D image coordinates
+  const A=[lm2d[Ai].x, lm2d[Ai].y];
+  const B=[lm2d[Bi].x, lm2d[Bi].y];
+  const C=[lm2d[Ci].x, lm2d[Ci].y];
+
+  const AB=[B[0]-A[0], B[1]-A[1]];
+  const BC=[C[0]-B[0], C[1]-B[1]];
+  const lenAB=Math.sqrt(AB[0]*AB[0]+AB[1]*AB[1]);
+  const lenBC=Math.sqrt(BC[0]*BC[0]+BC[1]*BC[1]);
+  if(lenAB<1e-5||lenBC<1e-5) return 0;
+
+  const ABn=[AB[0]/lenAB, AB[1]/lenAB];
+  const BCn=[BC[0]/lenBC, BC[1]/lenBC];
+
+  // Two perpendicular candidates to ABn in 2D image space
+  // perp_ccw = math CCW 90° rotation of ABn = visual CW in Y-down image
+  // perp_cw  = math CW  90° rotation of ABn = visual CCW in Y-down image
+  const perp_ccw=[-ABn[1],  ABn[0]];
+  const perp_cw =[ ABn[1], -ABn[0]];
+
+  // Choose e_palm based on which image rotation direction is FLEXION:
+  // pn[0] < 0 → dorsal faces LEFT → palm faces RIGHT → flexion is visual CW = perp_ccw
+  // pn[0] > 0 → dorsal faces RIGHT → palm faces LEFT → flexion is visual CCW = perp_cw
+  // This is FIXED by hand orientation, independent of current joint angle.
+  const px = -pn3d[0];  // palmar x-component in image
+  let e_palm;
+  if(Math.abs(px) > 0.1){
+    e_palm = px > 0 ? perp_ccw : perp_cw;
+  } else {
+    // Face-on fallback: use pn[2]
+    const cz = AB[0]*BC[1] - AB[1]*BC[0];
+    e_palm = (pn3d[2] < 0) === (cz > 0) ? perp_ccw : perp_cw;
+  }
+
+  const flex_comp = BCn[0]*e_palm[0] + BCn[1]*e_palm[1];
+  const ext_comp  = BCn[0]*ABn[0]   + BCn[1]*ABn[1];
+  return Math.atan2(flex_comp, ext_comp) * 180/Math.PI;
+}
+
+function computeAngles(lm2d, lm3d){
+  const pn = palmNormal(lm3d);
+  return {
+    // MCP stationary arm = wrist(0) → MCP knuckle = metacarpal shaft direction
+    // This is the correct clinical reference: the metacarpal runs from wrist to knuckle.
+    // PIP and DIP use the adjacent proximal joint as the stationary arm reference.
+    ring_mcp:   signedFlex(lm2d, W,   I13, I14, pn),
+    ring_pip:   signedFlex(lm2d, I13, I14, I15, pn),
+    ring_dip:   signedFlex(lm2d, I14, I15, I16, pn),
+    little_mcp: signedFlex(lm2d, W,   I17, I18, pn),
+    little_pip: signedFlex(lm2d, I17, I18, I19, pn),
+    little_dip: signedFlex(lm2d, I18, I19, I20, pn),
+    _pn: pn,
+  };
+}
+
+// ── Draw ───────────────────────────────────────────────────────
+// Official MediaPipe demo approach:
+// 1. Resize canvas to EXACT video intrinsic pixel dimensions
+// 2. ctx.clearRect full canvas
+// 3. Use DrawingUtils.drawConnectors + drawLandmarks (same as their demo)
+// 4. For mirror (front cam): ctx.scale(-1,1)+translate BEFORE drawing, restore after
+// 5. Add custom annotations (angle labels, metacarpal line) in same transform
+
+const HAND_CONNECTIONS = HandLandmarker.HAND_CONNECTIONS;
+
+function draw(lm2d, lm3d){
+  // ── Official MediaPipe demo canvas sizing ─────────────────────
+  // Canvas CSS size is set to match the video's displayed size.
+  // Canvas intrinsic size matches CSS size (device pixels).
+  // DrawingUtils uses lm.x * canvas.width — so canvas.width must equal
+  // the displayed width in pixels, NOT the camera intrinsic resolution.
+  const rect = video.getBoundingClientRect();
+  const dpr  = window.devicePixelRatio || 1;
+  const dispW = rect.width, dispH = rect.height;
+
+  // Set canvas CSS size to match video display size
+  canvas.style.width  = dispW + 'px';
+  canvas.style.height = dispH + 'px';
+
+  // Set canvas intrinsic size = display size (no DPR scaling — matches official demo)
+  if(canvas.width !== Math.round(dispW) || canvas.height !== Math.round(dispH)){
+    canvas.width  = Math.round(dispW);
+    canvas.height = Math.round(dispH);
+  }
+  const CW = canvas.width, CH = canvas.height;
+
+  ctx.clearRect(0, 0, CW, CH);
+  if(!lm2d) return;
+
+  // ── Landmark drawing — no ctx transform, both video+canvas CSS-mirrored ──
+  // Official approach: video has CSS scaleX(-1) for front cam.
+  // Canvas ALSO has CSS scaleX(-1) for front cam.
+  // DrawingUtils draws in original [0,1] coords — both get mirrored by CSS together.
+  // Result: landmarks perfectly aligned with video at all times.
+  const du     = new DrawingUtils(ctx);
+  const hlIdx  = finger==='ring' ? [I13,I14,I15,I16] : [I17,I18,I19,I20];
+  const hlCol  = finger==='ring' ? '#a78bfa' : '#38bdf8';
+
+  du.drawConnectors(lm2d, HAND_CONNECTIONS, {color:'#ffffff55', lineWidth:2});
+  du.drawLandmarks(lm2d, {color:'#ffffffaa', fillColor:'#ffffff33', lineWidth:1, radius:4});
+
+  // Active finger — highlighted on top
+  const fingerConns = HAND_CONNECTIONS.filter(
+    c => hlIdx.includes(c.start) || hlIdx.includes(c.end)
+  );
+  du.drawConnectors(lm2d, fingerConns, {color:hlCol, lineWidth:5});
+  du.drawLandmarks(hlIdx.map(i=>lm2d[i]),
+    {color:'#fff', fillColor:hlCol, lineWidth:2, radius:8});
+
+  // ── Angles ────────────────────────────────────────────────────
+  const pts3d = lm3d.map(l=>[l.x,l.y,l.z]);
+  const ang   = computeAngles(lm2d, pts3d);
+  const f     = finger;
+  const mcp=ang[`${f}_mcp`], pip=ang[`${f}_pip`], dip=ang[`${f}_dip`];
+  _angles={mcp,pip,dip};
+  updateCards(mcp,pip,dip);
+
+
+  // ── Joint labels ──────────────────────────────────────────────
+  const joints = f==='ring'
+    ? [[I13,'MCP',mcp],[I14,'PIP',pip],[I15,'DIP',dip]]
+    : [[I17,'MCP',mcp],[I18,'PIP',pip],[I19,'DIP',dip]];
+
+  ctx.font = 'bold 13px monospace';
+  joints.forEach(([idx,name,val])=>{
+    const x = lm2d[idx].x*CW + 10;
+    const y = lm2d[idx].y*CH - 10;
+    const label = (!isNaN(val)&&val!==null) ? `${name} ${Math.round(val)}°` : name;
+    ctx.lineWidth=3; ctx.strokeStyle='rgba(0,0,0,.9)'; ctx.strokeText(label,x,y);
+    ctx.fillStyle=hlCol; ctx.fillText(label,x,y);
+  });
+
+  // ── Goniometer arms ─────────────────────────────────────────────
+  // Stationary arm: along metacarpal shaft (dorsal surface).
+  // Moving arm: along proximal phalanx (MCP→PIP).
+  // Use MIDDLE_MCP(9) as a stable dorsal reference to define metacarpal direction.
+  // For ring: middle_MCP(9) → ring_MCP(13). For little: ring_MCP(13) → little_MCP(17).
+  // This traces the dorsal knuckle ridge = metacarpal shaft direction.
+
+  const mcpI = f==='ring' ? I13 : I17;
+  const pipI = f==='ring' ? I14 : I18;
+
+  const wlm  = lm2d[W];
+  const mlm  = lm2d[mcpI];
+  const plm  = lm2d[pipI];
+
+  const wx=wlm.x*CW, wy=wlm.y*CH;
+  const mx=mlm.x*CW, my=mlm.y*CH;
+  const px=plm.x*CW, py=plm.y*CH;
+
+  // Stationary arm: wrist → MCP (= metacarpal shaft, matching angle calculation)
+  // Draw the line from wrist through MCP, extending slightly past MCP
+  const mdx=mx-wx, mdy=my-wy;
+  const mlen=Math.sqrt(mdx*mdx+mdy*mdy)+1e-6;
+  const mnx=mdx/mlen, mny=mdy/mlen;
+  const extX=mx+mnx*mlen*0.1, extY=my+mny*mlen*0.1; // tiny extension past MCP
+
+  ctx.beginPath(); ctx.moveTo(wx,wy); ctx.lineTo(extX,extY);
+  ctx.strokeStyle=hlCol+'cc'; ctx.lineWidth=3;
+  ctx.setLineDash([6,4]); ctx.stroke(); ctx.setLineDash([]);
+
+  // Moving arm: MCP → PIP (proximal phalanx)
+  const pdx=px-mx, pdy=py-my;
+  const plen=Math.sqrt(pdx*pdx+pdy*pdy)+1e-6;
+  const pnx=pdx/plen, pny=pdy/plen;
+  const mvX=mx+pnx*plen*1.3, mvY=my+pny*plen*1.3;
+
+  ctx.beginPath(); ctx.moveTo(mx,my); ctx.lineTo(mvX,mvY);
+  ctx.strokeStyle=hlCol+'99'; ctx.lineWidth=2;
+  ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
+
+  // Dot at wrist reference point
+  ctx.beginPath(); ctx.arc(wx,wy,4,0,Math.PI*2);
+  ctx.fillStyle=hlCol+'aa'; ctx.fill();
+}
+
+// ── UI ─────────────────────────────────────────────────────────
+function updateViewQuality(score){
+  // score: 0=palm facing cam (bad), 1=true lateral (ideal)
+  const el = document.getElementById('viewQ');
+  if(!el) return;
+  if(score > 0.5){
+    el.textContent = '✓ Good lateral view';
+    el.style.color = 'var(--accent2)';
+  } else if(score > 0.25){
+    el.textContent = '⚠ Rotate hand to lateral view';
+    el.style.color = 'var(--accent3)';
+  } else {
+    el.textContent = '✗ Not lateral — angles unreliable';
+    el.style.color = 'var(--warn)';
+  }
+}
+function cls(v){
+  if(v===null||isNaN(v)) return '';
+  if(v<0) return 'hyper'; if(v>45) return 'severe'; if(v>20) return 'high'; return 'flex';
+}
+function updateCards(mcp,pip,dip){
+  const fmt=v=>(v===null||isNaN(v))?'—':Math.round(v)+'°';
+  [['M',mcp,'var(--accent)'],['P',pip,'var(--accent3)'],['D',dip,'var(--ring)']].forEach(([j,v,col])=>{
+    document.getElementById('v'+j).textContent=fmt(v);
+    document.getElementById('v'+j).className='cval '+cls(v);
+    const pct=(v!==null&&!isNaN(v))?Math.min(Math.abs(v)/90*100,100):0;
+    document.getElementById('b'+j).style.width=pct+'%';
+  });
+  document.getElementById('capBtn').disabled=(mcp===null||isNaN(mcp));
+}
+function setStatus(on,txt){
+  document.getElementById('dot').className='dot'+(on?' on':'');
+  document.getElementById('stxt').textContent=txt;
+}
+function snack(m='✓ Captured'){
+  const el=document.getElementById('snack');
+  el.textContent=m; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2000);
+}
+
+window.setFinger=function(f){
+  finger=f;
+  document.getElementById('tabR').className='tab'+(f==='ring'?' r':'');
+  document.getElementById('tabL').className='tab'+(f==='little'?' l':'');
+};
+window.capture=function(){
+  const {mcp,pip,dip}=_angles;
+  if(mcp===null||isNaN(mcp)) return;
+  const ts=new Date().toTimeString().slice(0,8);
+  log.push({n:log.length+1,ts,
+    pt:document.getElementById('pid').value||'—',
+    h:document.getElementById('hside').value,
+    f:finger,
+    mcp:+mcp.toFixed(1),pip:+pip.toFixed(1),dip:+dip.toFixed(1)});
+  renderLog(); snack();
+};
+window.clearLog=function(){
+  if(!log.length) return;
+  if(confirm('Clear all readings?')){log=[];renderLog();}
+};
+window.exportCSV=function(){
+  if(!log.length){snack('No readings');return;}
+  const h='#,Time,Patient,Hand,Finger,MCP°,PIP°,DIP°\n';
+  const rows=log.map(r=>`${r.n},${r.ts},${r.pt},${r.h},${r.f},${r.mcp},${r.pip},${r.dip}`);
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([h+rows.join('\n')],{type:'text/csv'}));
+  a.download=`dupuytren_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+};
+function renderLog(){
+  const tb=document.getElementById('logBody');
+  if(!log.length){tb.innerHTML='<tr><td colspan="8" class="empty">No readings yet</td></tr>';return;}
+  tb.innerHTML=[...log].reverse().map(r=>`<tr>
+    <td>${r.n}</td><td>${r.ts}</td><td>${r.pt}</td><td>${r.h}</td>
+    <td class="${r.f==='ring'?'rc':'lc'}">${r.f==='ring'?'Ring':'Little'}</td>
+    <td>${r.mcp}°</td><td>${r.pip}°</td><td>${r.dip}°</td></tr>`).join('');
+}
+
+// ── Detection loop — exact official pattern ────────────────────
+function loop(){
+  requestAnimationFrame(loop);
+  if(!hl||video.readyState<2||video.paused) return;
+  if(video.currentTime===lastT) return;
+  lastT=video.currentTime;
+
+  const res=hl.detectForVideo(video, performance.now());
+
+  fc++; const now=Date.now();
+  if(now-fpsT>1000){
+    document.getElementById('fps').textContent=fc+' fps';
+    fc=0; fpsT=now;
+  }
+
+  if(res.landmarks?.length){
+    draw(res.landmarks[0], res.worldLandmarks[0]);
+    setStatus(true,'Hand detected');
+    handSeen=true;
+  } else {
+    if(handSeen){
+      draw(null,null);
+      updateCards(null,null,null);
+      setStatus(false,'No hand detected');
+      const el=document.getElementById('viewQ');
+      if(el){el.textContent='Detecting hand…';el.style.color='var(--muted)';}
+      handSeen=false;
+    }
+  }
+}
+
+// ── Camera ─────────────────────────────────────────────────────
+async function startCam(facing='environment'){
+  if(video.srcObject) video.srcObject.getTracks().forEach(t=>t.stop());
+  video.srcObject=null; video.src='';
+  isFront=(facing==='user');
+  // Official demo approach: mirror BOTH video AND canvas via CSS for front cam.
+  // DrawingUtils draws in original [0,1] coords on canvas.
+  // Both elements get CSS scaleX(-1) → they mirror identically → perfect alignment.
+  const m = isFront ? 'scaleX(-1)' : 'none';
+  video.style.transform  = m;
+  canvas.style.transform = m;
+  const stream=await navigator.mediaDevices.getUserMedia({
+    video:{facingMode:facing, width:{ideal:1920}, height:{ideal:1080}}
+  });
+  video.srcObject=stream;
+  await new Promise(r=>{video.onloadeddata=r;});
+  video.play(); lastT=-1;
+}
+window.flipCam=async()=>{ await startCam(isFront?'environment':'user'); };
+
+document.getElementById('filein').addEventListener('change',async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  if(video.srcObject) video.srcObject.getTracks().forEach(t=>t.stop());
+  video.srcObject=null;
+  video.style.transform='none'; canvas.style.transform='none'; isFront=false;
+  video.src=URL.createObjectURL(f); video.loop=true; video.play(); lastT=-1;
+});
+
+// ── Init ───────────────────────────────────────────────────────
+async function init(){
+  try{
+    const vision=await FilesetResolver.forVisionTasks(
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+    );
+    // Try GPU first (fastest), fall back to CPU
+    for(const delegate of ['GPU','CPU']){
+      try{
+        hl=await HandLandmarker.createFromOptions(vision,{
+          baseOptions:{
+            modelAssetPath:'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+            delegate
+          },
+          runningMode:'VIDEO', numHands:1,
+          minHandDetectionConfidence:0.5,
+          minHandPresenceConfidence:0.5,
+          minTrackingConfidence:0.5
+        });
+        break;
+      }catch(e){ if(delegate==='CPU') throw e; }
+    }
+
+    document.getElementById('loading').style.display='none';
+    setStatus(false,'Ready');
+    await startCam('environment');
+    requestAnimationFrame(loop);
+  }catch(e){
+    document.getElementById('ltxt').textContent='Error: '+e.message;
+    console.error(e);
+  }
+}
+init();
+</script>
+</body>
+</html>
